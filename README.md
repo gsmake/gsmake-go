@@ -1,2 +1,2 @@
 # gsmake
-gsdocker groovy like build tool
+gsdocker gradle like build tool
