@@ -2,8 +2,8 @@ package pom
 
 import "errors"
 
-// errors
+// pom errors
 var (
-	ErrLinker = errors.New("gsmake package link error")
-	ErrParser = errors.New("gsmake package parse error")
+	ErrNotFound = errors.New("project not exists")
+	ErrProject  = errors.New("project setting error")
 )

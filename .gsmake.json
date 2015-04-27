@@ -1,4 +1,21 @@
 {
     "name" : "github.com/gsdocker/gsmake",
-    "version" : "0.0.9"
+    "version" : "0.0.9",
+
+    "task" : {
+        "resources" : {
+            "func" : "TaskResources",
+            "description":"prepare go project resources"
+        },
+
+        "compile" : {
+            "description":"compile golang source code",
+            "dependency" : "resources",
+        }
+    },
+
+    "properties" : {
+        "build.directory" : ".build",
+        "gsmake.directory" : ".gsmake"
+    }
 }

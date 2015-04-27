@@ -1,18 +1,11 @@
-package pom
+package test
 
-import (
-	"fmt"
-	"path/filepath"
-	"testing"
-)
+import "testing"
 
-func TestParse(t *testing.T) {
-	path, _ := filepath.Abs("../")
-	project, err := Parse(path)
+func TestReadProject(t *testing.T) {
+	_, err := NewProject("./")
 
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Printf("project: %v", project)
 }
