@@ -1,11 +1,18 @@
+//+
+
 package pom
 
 import "testing"
 
 func TestReadProject(t *testing.T) {
-	_, err := NewProject("../")
+
+	builder, err := NewBuilder("../")
 
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := builder.Compile(); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -24,11 +24,10 @@ type Project struct {
 	Task       map[string]*Task  // project declare task map
 	Properties map[string]string // properties
 	path       string            // project path
+	builder    *Builder          // builder belongs to
 }
 
-// NewProject create new project
-// @param path project path
-func NewProject(path string) (*Project, error) {
+func (builder *Builder) createProject(path string) (*Project, error) {
 
 	fullpath, err := filepath.Abs(path)
 
@@ -55,7 +54,8 @@ func NewProject(path string) (*Project, error) {
 	}
 
 	project := &Project{
-		path: path,
+		path:    path,
+		builder: builder,
 	}
 
 	err = json.Unmarshal(content, project)
