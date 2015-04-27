@@ -23,13 +23,14 @@ type Project struct {
 	Version    string            // Project version string
 	Task       map[string]*Task  // project declare task map
 	Properties map[string]string // properties
+	path       string            // project path
 }
 
 // NewProject create new project
 // @param path project path
 func NewProject(path string) (*Project, error) {
 
-	fullpath, err = filepath.Abs(path)
+	fullpath, err := filepath.Abs(path)
 
 	if err != nil {
 		return nil, gserrors.Newf(err, "gsmake project not exist : \n\t%s", path)
@@ -53,7 +54,9 @@ func NewProject(path string) (*Project, error) {
 		return nil, gserrors.Newf(err, "read project setting file err :\n\tfile: %s\n\terr: %s", settingfile, err)
 	}
 
-	project := &Project{}
+	project := &Project{
+		path: path,
+	}
 
 	err = json.Unmarshal(content, project)
 

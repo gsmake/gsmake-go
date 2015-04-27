@@ -10,7 +10,7 @@
 
         "compile" : {
             "description":"compile golang source code",
-            "dependency" : "resources",
+            "dependency" : "resources"
         }
     },
 

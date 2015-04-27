@@ -1,9 +1,9 @@
-package test
+package pom
 
 import "testing"
 
 func TestReadProject(t *testing.T) {
-	_, err := NewProject("./")
+	_, err := NewProject("../")
 
 	if err != nil {
 		t.Fatal(err)
