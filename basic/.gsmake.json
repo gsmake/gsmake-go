@@ -1,0 +1,7 @@
+{
+    "name":"github.com/gsdocker/gsmake/basic",
+
+    "import" : [
+        {"name" : "github.com/gsdocker/gsmake"}
+    ]
+}

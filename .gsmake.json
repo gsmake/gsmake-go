@@ -1,0 +1,20 @@
+{
+    "name":"github.com/gsdocker/gsmake",
+
+    "task" : {
+
+        "resources" :{},
+
+        "compile" : {
+            "prev" : "resources"
+        },
+
+        "test" : {
+            "prev" : "compile"
+        },
+
+        "publish" : {
+            "prev" : "test"
+        }
+    }
+}
