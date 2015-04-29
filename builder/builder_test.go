@@ -34,4 +34,8 @@ func TestBuilder(t *testing.T) {
 	if err := builder.Create(); err != nil {
 		t.Fatal(err)
 	}
+
+	if err := builder.Run("publish"); err != nil {
+		t.Fatal(err)
+	}
 }

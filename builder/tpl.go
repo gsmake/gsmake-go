@@ -3,11 +3,12 @@ package builder
 var tpl = `
 
 {{define "main.go"}}
-// generate builder for {{.RootProject}}
+// generate builder for {{.Name}}
 
 package main
 
 import "flag"
+import "os"
 import "github.com/gsdocker/gslogger"
 import "github.com/gsdocker/gsmake"
 
@@ -18,7 +19,7 @@ var listask = flag.Bool("task",false,"list all register task")
 func main(){
     defer gslogger.Join()
 
-    context.Init("{{.RootProject}}","current","{{.Path}}","{{.Root}}")
+    context.Init("{{.Name}}","current","{{ospath .Path}}","{{ospath .Root}}")
 
     flag.Parse()
 
@@ -27,7 +28,15 @@ func main(){
         return
     }
 
+    if flag.NArg() != 1 {
+        flag.PrintDefaults()
+        os.Exit(1)
+    }
 
+    if err := context.RunTask(flag.Arg(0)); err != nil {
+        context.E("%s",err)
+        os.Exit(1)
+    }
 }
 
 {{end}}

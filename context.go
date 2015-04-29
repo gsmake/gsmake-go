@@ -1,9 +1,16 @@
 package gsmake
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+)
+
+// errors
+var (
+	ErrTask = errors.New("task error")
 )
 
 // Task gsmake task
@@ -54,4 +61,19 @@ func (context *Context) ListTask() {
 	for name := range context.tasks {
 		fmt.Printf("* %s\n", name)
 	}
+}
+
+// RunTask run task
+func (context *Context) RunTask(name string) error {
+
+	if taskQ, ok := context.tasks[name]; ok {
+
+		for _, task := range taskQ {
+
+		}
+
+		return nil
+	}
+
+	return gserrors.Newf(ErrTask, "unregister task :%s", name)
 }

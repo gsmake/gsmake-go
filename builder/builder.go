@@ -10,8 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	"go/format"
-
+	"github.com/gsdocker/gsconfig"
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
@@ -21,9 +20,10 @@ import (
 type Builder struct {
 	gslogger.Log                        // Mixin gslogger .
 	Root         string                 // gsmake Root path
-	buildpath    string                 // gsmake build path
-	RootProject  string                 // build project
+	Name         string                 // build project
 	Path         string                 // Root project path
+	gopath       string                 // gsmake build path
+	binarypath   string                 // builder binary path
 	projects     map[string]*ProjectPOM // loaded project collection
 	tasks        map[string][]*TaskPOM  // tasks
 	loading      []*ProjectPOM          // loading projects
@@ -46,6 +46,9 @@ func NewBuilder(root string) (*Builder, error) {
 	funcs := template.FuncMap{
 		"taskname": func(name string) string {
 			return "Task" + strings.Title(name)
+		},
+		"ospath": func(name string) string {
+			return strings.Replace(name, "\\", "\\\\", -1)
 		},
 	}
 
@@ -75,7 +78,9 @@ func (builder *Builder) Prepare(path string) error {
 		return gserrors.Newf(err, "get fullpath -- failed \n\t%s", path)
 	}
 
-	builder.buildpath = filepath.Join(fullpath, ".build")
+	builder.gopath = filepath.Join(fullpath, gsconfig.String("gsmake.builder.gopath", ".builder"))
+	builder.binarypath = filepath.Join(builder.gopath, "bin", "builder"+gsos.ExeSuffix)
+
 	builder.Path = fullpath
 
 	project, err := builder.loadProject(fullpath)
@@ -84,7 +89,7 @@ func (builder *Builder) Prepare(path string) error {
 		return err
 	}
 
-	builder.RootProject = project.Name
+	builder.Name = project.Name
 	builder.projects[project.Name] = project
 
 	return builder.link()
@@ -96,12 +101,20 @@ func (builder *Builder) Create() error {
 
 	builder.I("generate builder src files ...")
 
-	srcRoot := filepath.Join(builder.buildpath, "src", "__gsmake")
+	srcRoot := filepath.Join(builder.gopath, "src", "__gsmake")
 
-	err := os.RemoveAll(srcRoot)
+	if gsos.IsExist(srcRoot) {
+		err := os.RemoveAll(srcRoot)
+
+		if err != nil {
+			return gserrors.Newf(err, "remove src directory error")
+		}
+	}
+
+	err := os.MkdirAll(srcRoot, 0755)
 
 	if err != nil {
-		return err
+		return gserrors.Newf(err, "mk src directory error")
 	}
 
 	err = builder.genSrcFile(builder, filepath.Join(srcRoot, "main.go"), "main.go")
@@ -129,13 +142,13 @@ func (builder *Builder) Create() error {
 
 	builder.I("generate builder src files -- success")
 
-	err = builder.compileBuilder(srcRoot)
+	return builder.compileBuilder(srcRoot)
+}
 
-	if err != nil {
-		return err
-	}
+// Run run builder
+func (builder *Builder) Run(args ...string) error {
 
-	cmd := exec.Command(filepath.Join(srcRoot, "builder"), "-task")
+	cmd := exec.Command(builder.binarypath, args...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -144,14 +157,15 @@ func (builder *Builder) Create() error {
 }
 
 func (builder *Builder) compileBuilder(srcRoot string) error {
+
 	gopath := os.Getenv("GOPATH")
 
-	newgopath := fmt.Sprintf("%s%s%s", builder.buildpath, string(os.PathListSeparator), gopath)
+	newgopath := fmt.Sprintf("%s%s%s", builder.gopath, string(os.PathListSeparator), gopath)
 
 	err := os.Setenv("GOPATH", newgopath)
 
 	if err != nil {
-		return gserrors.Newf(err, "set new gopath error\n\t%s", builder.buildpath)
+		return gserrors.Newf(err, "set new gopath error\n\t%s", builder.gopath)
 	}
 
 	defer func() {
@@ -166,15 +180,15 @@ func (builder *Builder) compileBuilder(srcRoot string) error {
 
 	err = os.Chdir(srcRoot)
 
-	defer func() {
-		os.Chdir(currentDir)
-	}()
-
 	if err != nil {
 		return gserrors.Newf(err, "change current dir error\n\tto:%s", srcRoot)
 	}
 
-	cmd := exec.Command("go", "build", "-o", "builder")
+	defer func() {
+		os.Chdir(currentDir)
+	}()
+
+	cmd := exec.Command("go", "build", "-o", builder.binarypath)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -192,16 +206,14 @@ func (builder *Builder) genSrcFile(context interface{}, path string, tplname str
 		return gserrors.Newf(err, "generate main.go error")
 	}
 
-	os.MkdirAll(filepath.Dir(path), 0755)
+	// var err error
+	// bytes, err := format.Source(buff.Bytes())
+	//
+	// if err != nil {
+	// 	return gserrors.Newf(err, "generate src file error\n\tfile:%s", path)
+	// }
 
-	var err error
-	bytes, err := format.Source(buff.Bytes())
-
-	if err != nil {
-		return gserrors.Newf(err, "generate src file error\n\tfile:%s", path)
-	}
-
-	err = ioutil.WriteFile(path, bytes, 0644)
+	err := ioutil.WriteFile(path, buff.Bytes(), 0644)
 
 	if err != nil {
 		return gserrors.Newf(err, "generate src file error\n\tfile:%s", path)
@@ -233,7 +245,7 @@ func (builder *Builder) linkProject(pom *ProjectPOM) error {
 		}
 	}
 
-	linkdir := filepath.Join(builder.buildpath, "src", pom.Name)
+	linkdir := filepath.Join(builder.gopath, "src", pom.Name)
 
 	if gsos.IsExist(linkdir) {
 		if gsos.SameFile(linkdir, pom.Path) {
@@ -257,8 +269,7 @@ func (builder *Builder) linkProject(pom *ProjectPOM) error {
 	if err != nil {
 		return err
 	}
-
-	builder.I("link project -- success", pom.Name, pom.Version)
+	builder.I("link project -- success")
 
 	return nil
 }
