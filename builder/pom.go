@@ -17,7 +17,7 @@ type ImportPOM struct {
 // TaskPOM .
 type TaskPOM struct {
 	Dependency string      `json:"prev"` // projects task name
-	project    *ProjectPOM // project belongs to
+	Project    *ProjectPOM // project belongs to
 }
 
 // ProjectPOM gsmake project
@@ -82,7 +82,7 @@ func (builder *Builder) loadProject(path string) (*ProjectPOM, error) {
 	// processing register task
 
 	for name, taskPOM := range pom.Task {
-		taskPOM.project = pom
+		taskPOM.Project = pom
 		builder.tasks[name] = append(builder.tasks[name], taskPOM)
 	}
 

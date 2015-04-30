@@ -23,6 +23,8 @@ func main(){
 
     flag.Parse()
 
+
+
     if *listask {
         context.ListTask()
         return
@@ -35,6 +37,7 @@ func main(){
 
     if err := context.RunTask(flag.Arg(0)); err != nil {
         context.E("%s",err)
+        gslogger.Join()
         os.Exit(1)
     }
 }
@@ -54,6 +57,7 @@ func init(){
         Name : "{{$key}}",
         F : task.{{taskname $key}},
         Prev : "{{$value.Dependency}}",
+        Project : "{{$value.Project.Name}}",
     })
     {{end}}
 }
