@@ -10,6 +10,8 @@ import (
 	"strings"
 	"text/template"
 
+	"go/format"
+
 	"github.com/gsdocker/gsconfig"
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
@@ -207,13 +209,13 @@ func (builder *Builder) genSrcFile(context interface{}, path string, tplname str
 	}
 
 	// var err error
-	// bytes, err := format.Source(buff.Bytes())
-	//
-	// if err != nil {
-	// 	return gserrors.Newf(err, "generate src file error\n\tfile:%s", path)
-	// }
+	bytes, err := format.Source(buff.Bytes())
 
-	err := ioutil.WriteFile(path, buff.Bytes(), 0644)
+	if err != nil {
+		return gserrors.Newf(err, "generate src file error\n\tfile:%s", path)
+	}
+
+	err = ioutil.WriteFile(path, bytes, 0644)
 
 	if err != nil {
 		return gserrors.Newf(err, "generate src file error\n\tfile:%s", path)
