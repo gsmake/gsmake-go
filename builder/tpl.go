@@ -56,7 +56,7 @@ func init(){
     context.Task(&gsmake.Task{
         Name : "{{$key}}",
         F : task.{{taskname $key}},
-        Prev : "{{$value.Dependency}}",
+        Prev : "{{$value.Prev}}",
         Project : "{{$value.Project.Name}}",
     })
     {{end}}

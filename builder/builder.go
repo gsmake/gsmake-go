@@ -15,21 +15,20 @@ import (
 	"github.com/gsdocker/gsconfig"
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+	"github.com/gsdocker/gsmake"
 	"github.com/gsdocker/gsos"
 )
 
 // Builder gsmake builder object
 type Builder struct {
-	gslogger.Log                        // Mixin gslogger .
-	Root         string                 // gsmake Root path
-	Name         string                 // build project
-	Path         string                 // Root project path
-	gopath       string                 // gsmake build path
-	binarypath   string                 // builder binary path
-	projects     map[string]*ProjectPOM // loaded project collection
-	tasks        map[string][]*TaskPOM  // tasks
-	loading      []*ProjectPOM          // loading projects
-	tpl          *template.Template     // code generate tmplate
+	gslogger.Log                    // Mixin gslogger .
+	Root         string             // gsmake Root path
+	Name         string             // build project
+	Path         string             // Root project path
+	gopath       string             // gsmake build path
+	binarypath   string             // builder binary path
+	loader       *gsmake.Loader     /// gsmake loader
+	tpl          *template.Template // code generate tmplate
 }
 
 // NewBuilder create new builder for project
@@ -42,6 +41,12 @@ func NewBuilder(root string) (*Builder, error) {
 	}
 
 	if err := os.MkdirAll(fullpath, 0755); err != nil {
+		return nil, err
+	}
+
+	loader, err := gsmake.NewLoader(fullpath, false)
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -61,11 +66,10 @@ func NewBuilder(root string) (*Builder, error) {
 	}
 
 	builder := &Builder{
-		Log:      gslogger.Get("gsmake"),
-		Root:     fullpath,
-		projects: make(map[string]*ProjectPOM),
-		tasks:    make(map[string][]*TaskPOM),
-		tpl:      tpl,
+		Log:    gslogger.Get("gsmake"),
+		Root:   fullpath,
+		loader: loader,
+		tpl:    tpl,
 	}
 
 	return builder, nil
@@ -83,18 +87,16 @@ func (builder *Builder) Prepare(path string) error {
 	builder.gopath = filepath.Join(fullpath, gsconfig.String("gsmake.builder.gopath", ".builder"))
 	builder.binarypath = filepath.Join(builder.gopath, "bin", "builder"+gsos.ExeSuffix)
 
-	builder.Path = fullpath
-
-	project, err := builder.loadProject(fullpath)
+	project, err := builder.loader.Load(fullpath, builder.gopath)
 
 	if err != nil {
 		return err
 	}
 
+	builder.Path = fullpath
 	builder.Name = project.Name
-	builder.projects[project.Name] = project
 
-	return builder.link()
+	return nil
 
 }
 
@@ -127,7 +129,7 @@ func (builder *Builder) Create() error {
 
 	i := 0
 
-	for _, project := range builder.projects {
+	for _, project := range builder.loader.Projects() {
 
 		if len(project.Task) == 0 {
 			continue
@@ -219,97 +221,6 @@ func (builder *Builder) genSrcFile(context interface{}, path string, tplname str
 
 	if err != nil {
 		return gserrors.Newf(err, "generate src file error\n\tfile:%s", path)
-	}
-
-	return nil
-}
-
-func (builder *Builder) link() error {
-
-	for _, pom := range builder.projects {
-		if err := builder.linkProject(pom); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (builder *Builder) linkProject(pom *ProjectPOM) error {
-
-	for _, project := range builder.projects {
-		if project != pom && strings.HasPrefix(pom.Name, project.Name) {
-			if err := builder.linkProject(project); err != nil {
-				return err
-			}
-
-			break
-		}
-	}
-
-	linkdir := filepath.Join(builder.gopath, "src", pom.Name)
-
-	if gsos.IsExist(linkdir) {
-		if gsos.SameFile(linkdir, pom.Path) {
-			builder.I("link project %s:%s -- already exist", pom.Name, pom.Version)
-			return nil
-		}
-
-		return gserrors.Newf(ErrProject, "duplicate project %s:%s link\n\tone :%s\n\ttwo :%s", pom.Name, pom.Version, linkdir, pom.Path)
-	}
-
-	builder.I("link  %s:%s\n\tfrom :%s\n\tto:%s", pom.Name, pom.Version, pom.Path, linkdir)
-
-	err := os.MkdirAll(filepath.Dir(linkdir), 0755)
-
-	if err != nil {
-		return err
-	}
-
-	err = os.Symlink(pom.Path, linkdir)
-
-	if err != nil {
-		return err
-	}
-	builder.I("link project -- success")
-
-	return nil
-}
-
-func (builder *Builder) searchProject(name, version string) (string, error) {
-
-	if version == "" {
-		version = "current"
-	}
-
-	builder.I("search project %s:%s", name, version)
-
-	// search global repo
-	globalpath := filepath.Join(builder.Root, "src", name, version)
-
-	builder.I("search path %s", globalpath)
-
-	if !gsos.IsDir(globalpath) {
-		// TODO: invoke download processing
-		return "", gserrors.Newf(ErrNotFound, "project %s:%s -- not found", name, version)
-	}
-
-	builder.I("search project %s:%s -- found", name, version)
-
-	return globalpath, nil
-}
-
-func (builder *Builder) circularLoadingCheck(name string) error {
-	var stream bytes.Buffer
-
-	for _, pom := range builder.loading {
-		if pom.Name == name || stream.Len() != 0 {
-			stream.WriteString(fmt.Sprintf("\t%s import\n", pom.Name))
-		}
-	}
-
-	if stream.Len() != 0 {
-		return gserrors.Newf(ErrProject, "circular package import :\n%s\t%s", stream.String(), name)
 	}
 
 	return nil
