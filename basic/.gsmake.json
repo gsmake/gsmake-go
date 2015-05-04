@@ -2,7 +2,8 @@
     "name":"github.com/gsdocker/gsmake/basic",
 
     "import" : [
-        {"name" : "github.com/gsdocker/gsmake"}
+        {"name" : "github.com/gsdocker/gsmake"},
+        {"name" : "github.com/xtaci/architecture"}
     ],
 
     "task" : {

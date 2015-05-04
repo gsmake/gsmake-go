@@ -30,6 +30,7 @@ type Loader struct {
 	projects     map[string]*ProjectPOM // loaded project collection
 	loading      []*ProjectPOM          // loading projects
 	runtimes     bool                   // runtime loader flag
+	downloader   *Downloader            // project downloader
 }
 
 // ImportPOM .
@@ -63,10 +64,11 @@ func NewLoader(root string, runtimes bool) (*Loader, error) {
 	}
 
 	return &Loader{
-		Log:      gslogger.Get("gsmake"),
-		projects: make(map[string]*ProjectPOM),
-		root:     path,
-		runtimes: runtimes,
+		Log:        gslogger.Get("gsmake"),
+		projects:   make(map[string]*ProjectPOM),
+		root:       path,
+		runtimes:   runtimes,
+		downloader: NewDownloader(),
 	}, nil
 }
 
@@ -217,8 +219,11 @@ func (loader *Loader) searchProject(name, version string) (string, error) {
 	loader.I("search path %s", globalpath)
 
 	if !gsos.IsDir(globalpath) {
-		// TODO: invoke download processing
-		return "", gserrors.Newf(ErrNotFound, "project %s:%s -- not found", name, version)
+		err := loader.downloader.Download(name, version, globalpath)
+
+		if err != nil {
+			return "", gserrors.Newf(err, "project %s:%s -- not found", name, version)
+		}
 	}
 
 	loader.I("search project %s:%s -- found", name, version)
