@@ -216,7 +216,7 @@ func (loader *Loader) searchProject(name, version string) (string, error) {
 	// search global repo
 	globalpath := filepath.Join(loader.root, "src", name, version)
 
-	loader.I("search path %s", globalpath)
+	loader.D("search path %s", globalpath)
 
 	if !gsos.IsDir(globalpath) {
 		err := loader.downloader.Download(name, version, globalpath)
@@ -226,7 +226,7 @@ func (loader *Loader) searchProject(name, version string) (string, error) {
 		}
 	}
 
-	loader.I("search project %s:%s -- found", name, version)
+	loader.I("project %s:%s -- found", name, version)
 
 	return globalpath, nil
 }
