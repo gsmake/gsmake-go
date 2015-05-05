@@ -2,20 +2,14 @@ package gsmake
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 )
 
-// errors
-var (
-	ErrTask = errors.New("task error")
-)
-
-// Task gsmake task
-type Task struct {
+// TaskCmd gsmake task
+type TaskCmd struct {
 	Name    string // task name
 	F       TaskF  // task function
 	Prev    string // prev task name
@@ -23,7 +17,7 @@ type Task struct {
 }
 
 // TaskF task function
-type TaskF func(context *Context) error
+type TaskF func(runner *Runner) error
 
 type visitMark int
 
@@ -34,12 +28,12 @@ const (
 )
 
 type taskGroup struct {
-	name  string    // task name
-	group []*Task   // group slice
-	mark  visitMark // visit mark
+	name  string     // task name
+	group []*TaskCmd // group slice
+	mark  visitMark  // visit mark
 }
 
-func (group *taskGroup) add(task *Task) {
+func (group *taskGroup) add(task *TaskCmd) {
 	group.group = append(group.group, task)
 }
 
@@ -47,7 +41,7 @@ func (group *taskGroup) unmark() {
 	group.mark = white
 }
 
-func (group *taskGroup) topoShort(context *Context) ([]*taskGroup, error) {
+func (group *taskGroup) topoShort(context *Runner) ([]*taskGroup, error) {
 
 	if group.mark == black {
 		return nil, nil
@@ -106,10 +100,10 @@ func (group *taskGroup) topoShort(context *Context) ([]*taskGroup, error) {
 	return result, nil
 }
 
-func (group *taskGroup) invoke(context *Context) error {
+func (group *taskGroup) invoke(runner *Runner) error {
 
 	for _, task := range group.group {
-		if err := task.F(context); err != nil {
+		if err := task.F(runner); err != nil {
 			return err
 		}
 	}
@@ -117,76 +111,70 @@ func (group *taskGroup) invoke(context *Context) error {
 	return nil
 }
 
-// Context .
-type Context struct {
-	gslogger.Log                       // mixin log APIs
-	name         string                // project Name
-	version      string                // project version
-	path         string                // project path
+// Runner gsmake task runner
+type Runner struct {
+	gslogger.Log                       // mixin Logger
 	root         string                // gsmake root path
+	path         string                // current running package path
+	name         string                // current running package name
 	current      *Task                 // current execute task
 	tasks        map[string]*taskGroup // register tasks
 	checkerOfDCG []*taskGroup          // DCG check stack
 }
 
-// NewContext .
-func NewContext() *Context {
-	return &Context{
+// NewRunner create new task runner
+func NewRunner(root string, path string, name string) *Runner {
+	return &Runner{
 		Log:   gslogger.Get("gsmake"),
+		root:  root,
+		path:  path,
+		name:  name,
 		tasks: make(map[string]*taskGroup),
 	}
 }
 
-// Init .
-func (context *Context) Init(name string, version string, path string, root string) {
-	context.name = name
-	context.version = version
-	context.path = path
-	context.root = root
-}
-
 // Task register task
-func (context *Context) Task(task *Task) {
-	group, ok := context.tasks[task.Name]
+func (runner *Runner) Task(task *TaskCmd) {
+	group, ok := runner.tasks[task.Name]
 	if !ok {
 		group = &taskGroup{name: task.Name}
-		context.tasks[task.Name] = group
+		runner.tasks[task.Name] = group
 	}
 
 	group.add(task)
 }
 
-//ListTask .
-func (context *Context) ListTask() {
+// PrintTask print defined task list
+func (runner *Runner) PrintTask() {
 	fmt.Println("register task :")
-	for name := range context.tasks {
+	for name := range runner.tasks {
 		fmt.Printf("* %s\n", name)
 	}
 }
 
-func (context *Context) unmark() {
-	for _, group := range context.tasks {
+func (runner *Runner) unmark() {
+	for _, group := range runner.tasks {
 		group.unmark()
 	}
 }
 
-// RunTask run task
-func (context *Context) RunTask(name string) error {
+// Run run task
+func (runner *Runner) Run(name string) error {
 
 	//DFS Topo sort
 
-	if group, ok := context.tasks[name]; ok {
+	if group, ok := runner.tasks[name]; ok {
 
-		result, err := group.topoShort(context)
+		result, err := group.topoShort(runner)
 
-		context.unmark()
+		runner.unmark()
 
 		if err != nil {
 			return err
 		}
 
 		for _, group := range result {
-			if err := group.invoke(context); err != nil {
+			if err := group.invoke(runner); err != nil {
 				return err
 			}
 		}

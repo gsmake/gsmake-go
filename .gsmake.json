@@ -1,6 +1,13 @@
 {
     "name":"github.com/gsdocker/gsmake",
 
+    "import" : [
+        {"name" : "github.com/gsdocker/gsos"},
+        {"name" : "github.com/gsdocker/gserrors"},
+        {"name" : "github.com/gsdocker/gsconfig"},
+        {"name" : "github.com/gsdocker/gslogger"}
+    ],
+
     "task" : {
 
         "resources" :{},

@@ -1,18 +1,11 @@
 package gsmake
 
 import (
-	"errors"
 	"regexp"
 	"strings"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-)
-
-// errors
-var (
-	ErrImportPath = errors.New("import path error")
-	ErrVCSite     = errors.New("vcs site error")
 )
 
 // VCSite .
