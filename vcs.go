@@ -9,7 +9,7 @@ import (
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
-	"github.com/satori/go.uuid"
+	"github.com/gsdocker/gsos/uuid"
 )
 
 // VCSCmd A vcsCmd describes how to use a version control system
@@ -94,6 +94,8 @@ func (cmd *GitCmd) Create(properties Properties) error {
 	}
 
 	repo := properties["repo"].(string)
+
+	cmd.I("git clone %s", repo)
 
 	// first clone repo into tempdir
 	command := exec.Command(cmd.name, "clone", repo, tmpdir)

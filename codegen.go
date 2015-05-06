@@ -27,6 +27,8 @@ func main(){
 		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
 	}
 
+    context.I("run task %s ...",flag.Arg(0))
+
     if err := context.Run(flag.Arg(0)); err != nil {
         context.E("%s",err)
         gslogger.Join()

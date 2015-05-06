@@ -15,7 +15,7 @@ import (
 )
 
 var helpmsg = `
-gsmake is a build automation software for any languages
+gsmake is a build automation software for golang and others
 
 Usage:
 
@@ -65,7 +65,7 @@ func main() {
 
 	// already in package dir
 	if gsos.IsExist(".gsmake.json") {
-		fullpath, err := filepath.Abs(".gsmake.json")
+		fullpath, err := filepath.Abs("./")
 
 		if err != nil {
 			log.E("get package full path error\n%s", err)
@@ -118,7 +118,7 @@ func main() {
 		goto Error
 	}
 
-	if !*verbflag {
+	if *verbflag {
 		args := []string{"-v"}
 		args = append(args, flag.Args()...)
 		compiler.Run(args...)
