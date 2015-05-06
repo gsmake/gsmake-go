@@ -105,6 +105,7 @@ func Load(root string, packagedir string, runtimes bool) (*Loader, error) {
 	err = loader.load()
 
 	if err != nil {
+
 		return nil, err
 	}
 
@@ -179,7 +180,7 @@ func (loader *Loader) load() error {
 	pkg, err := loader.loadpackage("", loader.path)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	loader.packages[pkg.Name] = pkg

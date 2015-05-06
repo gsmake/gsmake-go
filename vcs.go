@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
+	"github.com/satori/go.uuid"
 )
 
 // VCSCmd A vcsCmd describes how to use a version control system
@@ -85,16 +87,25 @@ func (cmd *GitCmd) Create(properties Properties) error {
 		}
 	}
 
+	tmpdir := filepath.Join(os.TempDir(), uuid.NewV1().String())
+
+	if err := os.MkdirAll(tmpdir, 0755); err != nil {
+		return err
+	}
+
 	repo := properties["repo"].(string)
 
-	command := exec.Command(cmd.name, "clone", repo, dir)
-
-	cmd.D("git clone\n\trepo :%s\n\tdir :%s", repo, dir)
+	// first clone repo into tempdir
+	command := exec.Command(cmd.name, "clone", repo, tmpdir)
 
 	command.Stderr = os.Stderr
 	command.Stdin = os.Stdin
 
 	if err := command.Run(); err != nil {
+		return err
+	}
+
+	if err := gsos.CopyDir(tmpdir, dir); err != nil {
 		return err
 	}
 
@@ -117,8 +128,6 @@ func (cmd *GitCmd) Create(properties Properties) error {
 	}()
 
 	command = exec.Command(cmd.name, "checkout", properties["version"].(string))
-
-	cmd.D("git checkout %s", properties["version"].(string))
 
 	command.Stderr = os.Stderr
 	command.Stdin = os.Stdin
