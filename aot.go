@@ -143,7 +143,7 @@ func (compiler *AOTCompiler) genbinary(srcRoot string) error {
 
 	gopath := os.Getenv("GOPATH")
 
-	newgopath := compiler.gopath //fmt.Sprintf("%s%s%s", compiler.gopath, string(os.PathListSeparator), gopath)
+	newgopath := fmt.Sprintf("%s%s%s", compiler.gopath, string(os.PathListSeparator), gopath)
 
 	err := os.Setenv("GOPATH", newgopath)
 

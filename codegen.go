@@ -7,6 +7,7 @@ var codegen = `
 package main
 
 import "os"
+import "fmt"
 import "flag"
 import "github.com/gsdocker/gslogger"
 import "github.com/gsdocker/gsmake"
@@ -26,7 +27,7 @@ func main(){
 		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
 	}
 
-    if err := context.Run(); err != nil {
+    if err := context.Run(flag.Arg(0)); err != nil {
         context.E("%s",err)
         gslogger.Join()
         os.Exit(1)

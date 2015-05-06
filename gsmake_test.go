@@ -33,10 +33,6 @@ func TestAOT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := compiler.Run("-task"); err != nil {
-		t.Fatal(err)
-	}
-
 	if err := compiler.Run("publish"); err != nil {
 		t.Fatal(err)
 	}
