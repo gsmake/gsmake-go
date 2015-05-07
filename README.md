@@ -38,7 +38,7 @@ package plugin
 
 import "github.com/gsdocker/gsmake"
 
-// TaskGs2go .
+// TaskHelloworld implement gsmake task helloworld .
 func TaskHelloworld(context *gsmake.Runner, args ...string) error {
 	context.I("hello gsmake!!!!!!")
 	return nil
