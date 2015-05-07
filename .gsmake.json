@@ -2,26 +2,43 @@
     "name":"github.com/gsdocker/gsmake",
 
     "import" : [
-        {"name" : "github.com/gsdocker/gsos"},
-        {"name" : "github.com/gsdocker/gserrors"},
-        {"name" : "github.com/gsdocker/gsconfig"},
-        {"name" : "github.com/gsdocker/gslogger"}
+        {"name" : "github.com/gsdocker/gsos","scope":"task|runtimes"},
+        {"name" : "github.com/gsdocker/gserrors","scope":"task|runtimes"},
+        {"name" : "github.com/gsdocker/gsconfig","scope":"task|runtimes"},
+        {"name" : "github.com/gsdocker/gslogger","scope":"task|runtimes"}
     ],
 
     "task" : {
 
-        "resources" :{},
+        "resources" :{
+            "description":"prepare package's resources"
+        },
 
         "compile" : {
-            "prev" : "resources"
+            "prev" : "resources",
+            "description":"compile package source codes"
         },
 
         "test" : {
-            "prev" : "compile"
+            "prev" : "compile",
+            "description":"run package's test suite"
         },
 
-        "publish" : {
-            "prev" : "test"
-        }
+        "setup" : {
+            "prev" : "test",
+            "description":"install current package"
+        },
+
+        "dev" : {"description":"setup package develop environment"},
+
+        "list" : {"description":"list loade task"},
+
+        "atom" : {"description":"start atom"}
+    },
+
+    "properties" : {
+        "goinstall":[
+            "cmd/gsmake"
+        ]
     }
 }

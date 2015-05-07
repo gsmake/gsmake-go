@@ -10,7 +10,6 @@ import (
 
 // VCSite .
 type VCSite struct {
-	Name   string                 // vcsite prefix
 	VCS    string                 // vcs command type
 	Repo   string                 // repo url
 	Import string                 // import path regex pattern
@@ -20,7 +19,7 @@ type VCSite struct {
 // Downloader project downloader
 type Downloader struct {
 	gslogger.Log                   // mixin Log APIs
-	sites        []VCSite          // wellknown vcs sites
+	sites        map[string]VCSite // wellknown vcs sites
 	vcs          map[string]VCSCmd // register vcs
 }
 
@@ -29,12 +28,22 @@ func NewDownloader() *Downloader {
 
 	downloader := &Downloader{
 		Log: gslogger.Get("gsmake"),
-		sites: []VCSite{
-			{
-				Name:   "github.com/",
+		sites: map[string]VCSite{
+			"github.com/": {
 				VCS:    "git",
 				Repo:   "https://${root}.git",
 				Import: `^(?P<root>github\.com/[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+)(/[A-Za-z0-9_.\-]+)*$`,
+			},
+			"gopkg.in/": {
+				VCS:    "git",
+				Repo:   "https://${root}",
+				Import: `^(?P<root>gopkg\.in/[A-Za-z0-9_.\-])$`,
+			},
+
+			"bitbucket.org/": {
+				VCS:    "git",
+				Repo:   "https://${root}.git",
+				Import: `^(?P<root>bitbucket\.org/[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+)(/[A-Za-z0-9_.\-]+)*$`,
 			},
 		},
 
@@ -46,28 +55,33 @@ func NewDownloader() *Downloader {
 	return downloader
 }
 
+// VCSite register vcs site
+func (downloader *Downloader) VCSite(prefix string, site VCSite) {
+	downloader.sites[prefix] = site
+}
+
 // Download .
 func (downloader *Downloader) Download(importpath string, version string, dir string) error {
 
-	for _, site := range downloader.sites {
-		if strings.HasPrefix(importpath, site.Name) {
+	for prefix, site := range downloader.sites {
+		if strings.HasPrefix(importpath, prefix) {
 
 			vcs, ok := downloader.vcs[site.VCS]
 
 			if !ok {
-				return gserrors.Newf(ErrVCSite, "unsupport vcs site(%s) : %s", site.Name, site.VCS)
+				return gserrors.Newf(ErrVCSite, "unsupport vcs site(%s) : %s", prefix, site.VCS)
 			}
 
 			matcher, err := regexp.Compile(site.Import)
 
 			if err != nil {
-				return gserrors.Newf(err, "compile vcsite(%s) import path regexp error", site.Name)
+				return gserrors.Newf(err, "compile vcsite(%s) import path regexp error", prefix)
 			}
 
 			m := matcher.FindStringSubmatch(importpath)
 
 			if m == nil {
-				return gserrors.Newf(ErrImportPath, "invalid import path for vcs site(%s) : %s", site.Name, importpath)
+				return gserrors.Newf(ErrImportPath, "invalid import path for vcs site(%s) : %s", prefix, importpath)
 			}
 
 			// Build map of named subexpression matches for expand.

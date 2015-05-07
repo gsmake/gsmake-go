@@ -33,7 +33,7 @@ type AOTCompiler struct {
 // Compile invoke aot compile for current package which path is ${packagedir}
 func Compile(root string, packagedir string) (*AOTCompiler, error) {
 
-	loader, err := Load(root, packagedir, false)
+	loader, err := Load(root, packagedir, scopeTask)
 
 	if err != nil {
 		return nil, err
@@ -71,10 +71,24 @@ func Compile(root string, packagedir string) (*AOTCompiler, error) {
 
 // Run run compiler generate program
 func (compiler *AOTCompiler) Run(args ...string) error {
+
+	gopath := os.Getenv("GOPATH")
+
+	err := os.Setenv("GOPATH", filepath.Join(compiler.path, gsconfig.String("gsmake.rundir", ".run")))
+
+	if err != nil {
+		return gserrors.Newf(err, "set new gopath error\n\t%s", compiler.gopath)
+	}
+
+	defer func() {
+		os.Setenv("GOPATH", gopath)
+	}()
+
 	cmd := exec.Command(compiler.binarypath, args...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 
 	return cmd.Run()
 }
@@ -143,7 +157,7 @@ func (compiler *AOTCompiler) genbinary(srcRoot string) error {
 
 	gopath := os.Getenv("GOPATH")
 
-	newgopath := fmt.Sprintf("%s%s%s", compiler.gopath, string(os.PathListSeparator), gopath)
+	newgopath := compiler.gopath //fmt.Sprintf("%s%s%s", compiler.gopath, string(os.PathListSeparator), gopath)
 
 	err := os.Setenv("GOPATH", newgopath)
 

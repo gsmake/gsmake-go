@@ -2,22 +2,29 @@ package gsmake
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/gsdocker/gsconfig"
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+	"github.com/gsdocker/gsos"
 )
 
 // TaskCmd gsmake task
 type TaskCmd struct {
-	Name    string // task name
-	F       TaskF  // task function
-	Prev    string // prev task name
-	Project string // project belongs to
+	Name        string // task name
+	Description string // task description
+	F           TaskF  // task function
+	Prev        string // prev task name
+	Project     string // project belongs to
 }
 
 // TaskF task function
-type TaskF func(runner *Runner) error
+type TaskF func(runner *Runner, args ...string) error
 
 type visitMark int
 
@@ -28,13 +35,18 @@ const (
 )
 
 type taskGroup struct {
-	name  string     // task name
-	group []*TaskCmd // group slice
-	mark  visitMark  // visit mark
+	name        string     // task name
+	description string     // description
+	group       []*TaskCmd // group slice
+	mark        visitMark  // visit mark
 }
 
 func (group *taskGroup) add(task *TaskCmd) {
 	group.group = append(group.group, task)
+
+	if group.description == "" {
+		group.description = task.Description
+	}
 }
 
 func (group *taskGroup) unmark() {
@@ -100,10 +112,10 @@ func (group *taskGroup) topoShort(context *Runner) ([]*taskGroup, error) {
 	return result, nil
 }
 
-func (group *taskGroup) invoke(runner *Runner) error {
+func (group *taskGroup) invoke(runner *Runner, args ...string) error {
 
 	for _, task := range group.group {
-		if err := task.F(runner); err != nil {
+		if err := task.F(runner, args...); err != nil {
 			return err
 		}
 	}
@@ -117,20 +129,126 @@ type Runner struct {
 	root         string                // gsmake root path
 	path         string                // current running package path
 	name         string                // current running package name
+	rcdir        string                // runtime resources dir
+	rundir       string                // start running directory
 	current      *Task                 // current execute task
 	tasks        map[string]*taskGroup // register tasks
 	checkerOfDCG []*taskGroup          // DCG check stack
+	packages     map[string]*Package   //  loaded packages
+	properties   Properties            // properties
+	downloader   *Downloader           // downloader
 }
 
 // NewRunner create new task runner
-func NewRunner(root string, path string, name string) *Runner {
+func NewRunner(name string, path string, root string) *Runner {
+
 	return &Runner{
-		Log:   gslogger.Get("gsmake"),
-		root:  root,
-		path:  path,
-		name:  name,
-		tasks: make(map[string]*taskGroup),
+		Log:    gslogger.Get("gsmake"),
+		root:   root,
+		path:   path,
+		rundir: gsos.CurrentDir(),
+		name:   name,
+		rcdir:  filepath.Join(path, gsconfig.String("gsmake.rundir", ".run")),
+		tasks:  make(map[string]*taskGroup),
 	}
+}
+
+// Package query package by name
+func (runner *Runner) Package(name string) (pkg *Package, ok bool) {
+	pkg, ok = runner.packages[name]
+	return
+}
+
+// Packages loop loade packages
+func (runner *Runner) Packages(f func(*Package) bool) {
+	for _, pkg := range runner.packages {
+		if !f(pkg) {
+			return
+		}
+	}
+}
+
+// StartDir task runner start directory
+func (runner *Runner) StartDir() string {
+	return runner.rundir
+}
+
+// Link link package to target path
+func (runner *Runner) Link(name string, version string, target string) error {
+
+	path, err := runner.searchpackage(name, version)
+
+	if err != nil {
+		return err
+	}
+
+	err = os.Symlink(path, target)
+
+	if err != nil {
+		return gserrors.Newf(err, "link %s:%s package error", name, version)
+	}
+
+	return nil
+}
+
+func (runner *Runner) searchpackage(name string, version string) (string, error) {
+
+	// first search local repo
+	repopath := filepath.Join(runner.root, "packages", name, version)
+
+	if gsos.IsExist(repopath) {
+		return repopath, nil
+	}
+
+	err := runner.downloader.Download(name, version, repopath)
+
+	if err != nil {
+		return "", gserrors.Newf(err, "unknown package %s:%s", name, version)
+	}
+
+	return repopath, nil
+}
+
+// PackageProperty get package property by name
+func (runner *Runner) PackageProperty(name string, key string, target interface{}) bool {
+
+	if pkg, ok := runner.Package(name); ok {
+		if v, ok := pkg.Properties[key]; ok {
+			content, _ := json.Marshal(v)
+
+			json.Unmarshal(content, target)
+
+			return true
+		}
+	}
+
+	return false
+}
+
+// Property get property by name
+func (runner *Runner) Property(key string, target interface{}) bool {
+
+	v, ok := runner.properties[key]
+
+	if !ok {
+		return ok
+	}
+
+	content, _ := json.Marshal(v)
+
+	json.Unmarshal(content, target)
+
+	return ok
+}
+
+// Name current package name
+func (runner *Runner) Name() string {
+	return runner.name
+}
+
+// ResourceDir runtime resource dir
+func (runner *Runner) ResourceDir() string {
+	return runner.rcdir
 }
 
 // Task register task
@@ -146,10 +264,13 @@ func (runner *Runner) Task(task *TaskCmd) {
 
 // PrintTask print defined task list
 func (runner *Runner) PrintTask() {
-	fmt.Println("register task :")
-	for name := range runner.tasks {
-		fmt.Printf("* %s\n", name)
+	var stream bytes.Buffer
+	stream.WriteString("task list:\n")
+	for name, task := range runner.tasks {
+		stream.WriteString(fmt.Sprintf("\t* %s%s;%s\n", name, strings.Repeat(" ", 20-len(name)), task.description))
 	}
+
+	runner.I("print tasks\n%s", stream.String())
 }
 
 func (runner *Runner) unmark() {
@@ -159,7 +280,17 @@ func (runner *Runner) unmark() {
 }
 
 // Run run task
-func (runner *Runner) Run(name string) error {
+func (runner *Runner) Run(name string, args ...string) error {
+
+	loader, err := Load(runner.root, runner.path, scopeRuntimes)
+
+	if err != nil {
+		return err
+	}
+
+	runner.packages = loader.packages
+	runner.properties = loader.properties
+	runner.downloader = loader.downloader
 
 	//DFS Topo sort
 
@@ -174,7 +305,7 @@ func (runner *Runner) Run(name string) error {
 		}
 
 		for _, group := range result {
-			if err := group.invoke(runner); err != nil {
+			if err := group.invoke(runner, args...); err != nil {
 				return err
 			}
 		}
@@ -182,5 +313,5 @@ func (runner *Runner) Run(name string) error {
 		return nil
 	}
 
-	return gserrors.Newf(ErrTask, "unregister task :%s", name)
+	return gserrors.Newf(ErrTask, "unknown task :%s", name)
 }

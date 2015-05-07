@@ -9,6 +9,7 @@ package main
 import "os"
 import "fmt"
 import "flag"
+import "strings"
 import "github.com/gsdocker/gslogger"
 import "github.com/gsdocker/gsmake"
 
@@ -18,7 +19,7 @@ func main(){
 
     flag.Parse()
 
-    if flag.NArg() != 1 {
+    if flag.NArg() < 1 {
         fmt.Println("expect task name")
         os.Exit(1)
     }
@@ -27,9 +28,9 @@ func main(){
 		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
 	}
 
-    context.I("run task %s ...",flag.Arg(0))
+    context.I("run task [%s] with args : %s",flag.Arg(0),strings.Join(flag.Args()[1:]," "))
 
-    if err := context.Run(flag.Arg(0)); err != nil {
+    if err := context.Run(flag.Arg(0),flag.Args()[1:]...); err != nil {
         context.E("%s",err)
         gslogger.Join()
         os.Exit(1)
@@ -51,6 +52,7 @@ func init(){
     {{range $key, $value := .Task}}
     context.Task(&gsmake.TaskCmd{
         Name : "{{$key}}",
+        Description : "{{$value.Description}}",
         F : task.{{taskname $key}},
         Prev : "{{$value.Prev}}",
         Project : "{{$value.Package}}",

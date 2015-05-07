@@ -15,6 +15,38 @@ import (
 	"github.com/gsdocker/gsos"
 )
 
+type scope int
+
+const (
+	scopeTask = (1 << iota)
+	scopeRuntimes
+	scopAll = scopeTask | scopeRuntimes
+)
+
+func scopeParse(text string) (scope, error) {
+
+	var result scope
+
+	for _, v := range strings.Split(text, "|") {
+		switch v {
+		case "task":
+			result |= scopeTask
+		case "runtimes":
+			result |= scopeRuntimes
+		case "":
+			continue
+		default:
+			return result, gserrors.Newf(ErrPackage, "unknown scope type :%s", v)
+		}
+	}
+
+	if result == 0 {
+		result = scopeTask
+	}
+
+	return result, nil
+}
+
 // Properties .
 type Properties map[string]interface{}
 
@@ -35,27 +67,29 @@ func Expand(content string, properties Properties) string {
 
 // Import the gsmake import instruction description
 type Import struct {
-	Name     string // import package name
-	Version  string // import package version
-	Runtimes bool   // runtimes import flag, default is AOT import
+	Name    string // import package name
+	Version string // import package version
+	Scope   string // runtimes import flag, default is AOT import
 }
 
 // Task package defined task description
 type Task struct {
-	Prev    string // depend task name
-	Package string `json:"-"` // package name which defined this task
+	Prev        string // depend task name
+	Description string // task description
+	Package     string `json:"-"` // package name which defined this task
 }
 
 // Package describe a gsmake package object
 type Package struct {
-	Name        string          // package name string
-	Version     string          // package version string
-	Import      []Import        // package import field
-	Task        map[string]Task // package defined task
-	Properties  Properties      // properties
-	Path        string          `json:"-"` // package origin path
-	Linked      string          `json:"-"` // package linked path
-	Traditional bool            `json:"-"` // traditional golang package flag
+	Name        string            // package name string
+	Version     string            // package version string
+	Import      []Import          // package import field
+	Task        map[string]Task   // package defined task
+	VCSite      map[string]VCSite // vcs site list
+	Properties  Properties        // properties
+	Path        string            `json:"-"` // package origin path
+	Linked      string            `json:"-"` // package linked path
+	Traditional bool              `json:"-"` // traditional golang package flag
 }
 
 // Loader gsmake package loader
@@ -64,7 +98,7 @@ type Loader struct {
 	pkg          *Package            // root package
 	packages     map[string]*Package // loaded packages
 	checkerOfDCG []*Package          // DCG check stack
-	runtimes     bool                // runtimes loader flag
+	scope        scope               // runtimes loader flag
 	root         string              // gsmake root path
 	path         string              // load package dir
 	properties   Properties          // properties
@@ -72,7 +106,7 @@ type Loader struct {
 }
 
 // Load load package
-func Load(root string, packagedir string, runtimes bool) (*Loader, error) {
+func Load(root string, packagedir string, scope scope) (*Loader, error) {
 
 	rootpath, err := filepath.Abs(root)
 
@@ -95,7 +129,7 @@ func Load(root string, packagedir string, runtimes bool) (*Loader, error) {
 	loader := &Loader{
 		Log:        gslogger.Get("gsmake"),
 		packages:   make(map[string]*Package),
-		runtimes:   runtimes,
+		scope:      scope,
 		root:       rootpath,
 		path:       packagepath,
 		properties: make(Properties),
@@ -142,7 +176,7 @@ func (loader *Loader) linkpackage(pkg *Package) error {
 
 	var linkdir string
 
-	if loader.runtimes {
+	if loader.scope == scopeRuntimes {
 		linkdir = filepath.Join(loader.path, gsconfig.String("gsmake.rundir", ".run"), "src", pkg.Name)
 	} else {
 		linkdir = filepath.Join(loader.path, gsconfig.String("gsmake.taskdir", ".task"), "src", pkg.Name)
@@ -252,7 +286,13 @@ func (loader *Loader) loadpackage(name string, fullpath string) (*Package, error
 			importir.Version = "current"
 		}
 
-		if importir.Runtimes != loader.runtimes {
+		scope, err := scopeParse(importir.Scope)
+
+		if err != nil {
+			return nil, gserrors.Newf(err, "parse import [%s] scope error\n\t%s", importir.Name, fullpath)
+		}
+
+		if (scope & loader.scope) == 0 {
 			continue
 		}
 
@@ -276,6 +316,12 @@ func (loader *Loader) loadpackage(name string, fullpath string) (*Package, error
 	if pkg.Properties != nil {
 		for k, v := range pkg.Properties {
 			loader.properties[k] = v
+		}
+	}
+
+	if pkg.VCSite != nil {
+		for k, v := range pkg.VCSite {
+			loader.downloader.VCSite(k, v)
 		}
 	}
 
@@ -314,5 +360,9 @@ func (loader *Loader) loadjson(file string) (*Package, error) {
 
 	err = json.Unmarshal(content, &config)
 
-	return config, err
+	if err != nil {
+		return nil, gserrors.Newf(err, "unmarshal .gsmake.json file error\n\tfile:%s", file)
+	}
+
+	return config, nil
 }

@@ -44,10 +44,17 @@ func main() {
 
 	flag.Parse()
 
-	if flag.NArg() != 1 {
+	if flag.NArg() < 1 {
 		fmt.Println(helpmsg)
 		goto Error
 	}
+
+	// if flag.NArg() > 1 {
+	// 	args = flag.Args()[1:]
+	// 	args = append(args, flag.Arg(0))
+	// } else {
+	// 	args = flag.Args()
+	// }
 
 	if !*verbflag {
 		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
@@ -119,8 +126,7 @@ func main() {
 	}
 
 	if *verbflag {
-		args := []string{"-v"}
-		args = append(args, flag.Args()...)
+		args := append([]string{"-v"}, flag.Args()...)
 		compiler.Run(args...)
 	} else {
 		compiler.Run(flag.Args()...)
