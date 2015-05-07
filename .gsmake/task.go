@@ -91,7 +91,7 @@ func TaskSetup(context *gsmake.Runner, args ...string) error {
 
 			name := filepath.Base(target)
 
-			err := gsos.CopyFile(
+			_, err := gsos.Copy(
 				filepath.Join(context.ResourceDir(), "bin", name),
 				filepath.Join(path, "bin", name),
 				false,
