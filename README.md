@@ -33,7 +33,7 @@ gsmake is a build automation software which is develop by pure go language
 }
 ```
 4. create go source file : {project.dir}/.gsmake/task.go:
-```golang
+```go
 package plugin
 
 import "github.com/gsdocker/gsmake"
