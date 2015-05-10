@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/gsdocker/gserrors"
 )
 
 // gsmake predeined environment variables
@@ -21,7 +23,6 @@ type Settings struct {
 	home      string // gsmake home path
 	repopath  string // gsmake repository path
 	workspace string // gsmake workspace root
-	name      string // gsmake root package name
 }
 
 func (settings *Settings) setHome(path string) error {
@@ -42,7 +43,17 @@ func (settings *Settings) setHome(path string) error {
 	return nil
 }
 
-func (settings *Settings) workpath(name string) string {
+func (settings *Settings) clearworkimport(name string) error {
+	importroot := filepath.Join(settings.workspace, name, "import")
+
+	if err := os.RemoveAll(importroot); err != nil {
+		return gserrors.Newf(err, "can't clear %s import package dir", name)
+	}
+
+	return nil
+}
+
+func (settings *Settings) worksrcpath(name string) string {
 	return filepath.Join(settings.workspace, name, "dev", "src", name)
 }
 

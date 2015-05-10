@@ -103,6 +103,7 @@ type Loader struct {
 	checkerOfDCG []*Package          // DCG check stack
 	stage        stageType           // loader exec stage
 	repository   *Repository         // gsmake repository
+	name         string              // load package name
 }
 
 // Load load package
@@ -114,7 +115,7 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 		stage:    stage,
 	}
 
-	loader.settings.name = name
+	loader.name = name
 	loader.settings.setHome(homepath)
 
 	// load respository
@@ -135,21 +136,15 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 	return nil, nil
 }
 
-func (loader *Loader) prepare() error {
-
-	// for _, pkg := range loader.packages {
-	// 	if err := loader.linkpackage(pkg); err != nil {
-	// 		return err
-	// 	}
-	// }
-
+func (loader *Loader) link() error {
+	loader.settings.clearworkimport(loader.name)
 	return nil
 }
 
 func (loader *Loader) load() error {
-	path := loader.settings.workpath(loader.settings.name)
+	path := loader.settings.worksrcpath(loader.name)
 
-	pkg, err := loader.loadpackage(loader.settings.name, path)
+	pkg, err := loader.loadpackage(loader.name, path)
 
 	if err != nil {
 		return err
