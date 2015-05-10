@@ -120,7 +120,7 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 	loader.settings.setHome(homepath)
 
 	// load respository
-	repo, err := loadRepository(loader.settings)
+	repo, err := loadRepository(&loader.settings)
 
 	if err != nil {
 		return nil, err
@@ -137,12 +137,10 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 	return nil, nil
 }
 
-func (loader *Loader) link() error {
-	loader.settings.clearworkimport(loader.name)
-	return nil
-}
-
 func (loader *Loader) load() error {
+
+	loader.settings.clearworkimport(loader.name)
+
 	path := loader.settings.worksrcpath(loader.name)
 
 	pkg, err := loader.loadpackage(loader.name, path)
