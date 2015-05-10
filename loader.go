@@ -104,6 +104,7 @@ type Loader struct {
 	stage        stageType           // loader exec stage
 	repository   *Repository         // gsmake repository
 	name         string              // load package name
+	rootpackage  *Package            // load root pacakge
 }
 
 // Load load package
@@ -150,7 +151,7 @@ func (loader *Loader) load() error {
 		return err
 	}
 
-	loader.packages[pkg.Name] = pkg
+	loader.rootpackage = pkg
 
 	return nil
 }
