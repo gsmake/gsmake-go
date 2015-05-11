@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -99,17 +100,17 @@ type Package struct {
 // Loader package loader
 type Loader struct {
 	gslogger.Log                     // mixin Log APIs
-	settings     Settings            // gsmake settings
 	packages     map[string]*Package // loaded packages
 	checkerOfDCG []*Package          // DCG check stack
 	stage        stageType           // loader exec stage
 	repository   *Repository         // gsmake repository
 	name         string              // load package name
+	homepath     string              // gsmake home path
 	rootpackage  *Package            // load root pacakge
 }
 
 // Load load package
-func Load(homepath string, name string, stage stageType) (*Loader, error) {
+func Load(homepath string, path string, stage stageType) (*Loader, error) {
 
 	loader := &Loader{
 		Log:      gslogger.Get("gsmake"),
@@ -117,11 +118,16 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 		stage:    stage,
 	}
 
-	loader.name = name
-	loader.settings.setHome(homepath)
+	var err error
+
+	loader.homepath, err = filepath.Abs(homepath)
+
+	if err != nil {
+		return nil, err
+	}
 
 	// load respository
-	repo, err := loadRepository(&loader.settings)
+	repo, err := loadRepository(loader.homepath)
 
 	if err != nil {
 		return nil, err
@@ -129,7 +135,7 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 
 	loader.repository = repo
 
-	err = loader.load()
+	err = loader.load(path)
 
 	if err != nil {
 		return nil, err
@@ -138,26 +144,45 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 	return loader, nil
 }
 
-func (loader *Loader) load() error {
+func (loader *Loader) load(path string) error {
 
-	path := loader.settings.devpath(loader.name)
+	fullpath, err := filepath.Abs(path)
 
-	if !gsos.IsExist(path) {
-
-		err := loader.repository.Get(loader.name, "current", path)
-
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return gserrors.Newf(err, "get load package fullpath error :%s", path)
 	}
 
-	pkg, err := loader.loadpackage(loader.name, path)
+	if !gsos.IsExist(fullpath) {
+		return gserrors.Newf(ErrPackage, "package not found :%s", fullpath)
+	}
+
+	pkg, err := loader.loadpackage("", fullpath)
 
 	if err != nil {
 		return err
 	}
 
 	loader.packages[pkg.Name] = pkg
+
+	loader.name = pkg.Name
+
+	target := filepath.Join(Workspace(loader.homepath, loader.name), "src", loader.name)
+
+	if gsos.IsExist(target) {
+		os.RemoveAll(target)
+	}
+
+	err = os.MkdirAll(filepath.Dir(target), 0755)
+
+	if err != nil {
+		return gserrors.Newf(err, "create workspace error")
+	}
+
+	err = os.Symlink(fullpath, target)
+
+	if err != nil {
+		return gserrors.Newf(err, "link package to workspace error")
+	}
 
 	return nil
 }
@@ -218,9 +243,9 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 		var importpath string
 
 		if loader.stage == stageTask {
-			importpath = loader.settings.taskPath(loader.name, importir.Name)
+			importpath = TaskStageImportDir(loader.homepath, loader.name, importir.Name)
 		} else {
-			importpath = loader.settings.runtimesPath(loader.name, importir.Name)
+			importpath = RuntimesStageImportDir(loader.homepath, loader.name, importir.Name)
 		}
 
 		err = loader.repository.Get(importir.Name, importir.Version, importpath)

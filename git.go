@@ -12,11 +12,12 @@ import (
 
 type gitSCM struct {
 	gslogger.Log        // mixin log APIs
+	homepath     string // gsmake home path
 	cmd          string // command name
 	name         string // command display name
 }
 
-func newGitSCM() (*gitSCM, error) {
+func newGitSCM(homepath string) (*gitSCM, error) {
 	_, err := SearchCmd("git")
 
 	if err != nil {
@@ -24,9 +25,10 @@ func newGitSCM() (*gitSCM, error) {
 	}
 
 	return &gitSCM{
-		Log:  gslogger.Get("gsmake"),
-		cmd:  "git",
-		name: "GIT",
+		Log:      gslogger.Get("gsmake"),
+		cmd:      "git",
+		name:     "GIT",
+		homepath: homepath,
 	}, nil
 }
 
@@ -39,7 +41,9 @@ func (git *gitSCM) Cmd() string {
 }
 
 // Get implement SCM interface func
-func (git *gitSCM) Get(url string, repopath string, version string, targetpath string) error {
+func (git *gitSCM) Get(url string, name string, version string, targetpath string) error {
+
+	repopath := RepoDir(git.homepath, name)
 
 	// if the local repo not exist, then clone it from host site
 	if !gsos.IsDir(repopath) {

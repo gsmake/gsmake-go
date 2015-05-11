@@ -22,15 +22,15 @@ type AOTCompiler struct {
 	gslogger.Log                     // Mixin gslogger .
 	name         string              // build project
 	binarypath   string              // binary path
-	settings     Settings            //  settings
+	homepath     string              // gsmake home path
 	tpl          *template.Template  // code generate tmplate
 	packages     map[string]*Package // load packages
 }
 
 // Compile invoke aot compile for current package which path is ${packagedir}
-func Compile(root string, name string) (*AOTCompiler, error) {
+func Compile(homepath string, path string) (*AOTCompiler, error) {
 
-	loader, err := Load(root, name, stageTask)
+	loader, err := Load(homepath, path, stageTask)
 
 	if err != nil {
 		return nil, err
@@ -53,13 +53,13 @@ func Compile(root string, name string) (*AOTCompiler, error) {
 
 	compiler := &AOTCompiler{
 		Log:      gslogger.Get("gsmake"),
-		settings: loader.settings,
-		name:     name,
+		name:     loader.name,
+		homepath: loader.homepath,
 		tpl:      tpl,
 		packages: loader.packages,
 	}
 
-	compiler.binarypath = filepath.Join(compiler.settings.devbinpath(compiler.name), "__gsmake_task"+gsos.ExeSuffix)
+	compiler.binarypath = filepath.Join(BinaryDir(compiler.homepath, compiler.name), "__gsmake_task"+gsos.ExeSuffix)
 
 	return compiler, compiler.compile()
 }
@@ -68,7 +68,7 @@ func Compile(root string, name string) (*AOTCompiler, error) {
 func (compiler *AOTCompiler) Run(args ...string) error {
 
 	gopath := os.Getenv("GOPATH")
-	newgopath := compiler.settings.runtimesGOPath(compiler.name)
+	newgopath := RuntimesStageGOPATH(compiler.homepath, compiler.name)
 	err := os.Setenv("GOPATH", newgopath)
 
 	if err != nil {
@@ -90,7 +90,7 @@ func (compiler *AOTCompiler) Run(args ...string) error {
 
 func (compiler *AOTCompiler) compile() error {
 
-	srcRoot := compiler.settings.taskPath(compiler.name, "gsmake.task")
+	srcRoot := TaskStageImportDir(compiler.homepath, compiler.name, "gsmake.task")
 
 	if gsos.IsExist(srcRoot) {
 		err := os.RemoveAll(srcRoot)
@@ -113,8 +113,8 @@ func (compiler *AOTCompiler) compile() error {
 	}
 
 	context.Name = compiler.name
-	context.Path = compiler.settings.devpath(compiler.name)
-	context.Root = compiler.settings.home
+	context.Path = Workspace(compiler.homepath, compiler.name)
+	context.Root = compiler.homepath
 
 	err = compiler.gencodes(&context, filepath.Join(srcRoot, "main.go"), "main.go")
 
@@ -152,7 +152,7 @@ func (compiler *AOTCompiler) genbinary(srcRoot string) error {
 
 	gopath := os.Getenv("GOPATH")
 
-	newgopath := compiler.settings.taskGOPath(compiler.name) //fmt.Sprintf("%s%s%s", compiler.gopath, string(os.PathListSeparator), gopath)
+	newgopath := (compiler.name)
 
 	err := os.Setenv("GOPATH", newgopath)
 

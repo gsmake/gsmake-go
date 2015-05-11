@@ -26,19 +26,19 @@ func SearchCmd(name string) (string, error) {
 type SCM interface {
 	fmt.Stringer
 	Cmd() string
-	Get(url string, reppath string, version string, targetpath string) error
+	Get(repo string, name string, version string, target string) error
 }
 
 // Repository gsmake package repository proxy
 type Repository struct {
-	settings *Settings       // settings
+	homepath string          // gsmake home path
 	sites    map[string]Site // register package host sites
 	scm      map[string]SCM  // register scm
 }
 
-func loadRepository(settings *Settings) (*Repository, error) {
+func loadRepository(homepath string) (*Repository, error) {
 	repo := &Repository{
-		settings: settings,
+		homepath: homepath,
 	}
 
 	repo.sites = map[string]Site{
@@ -60,7 +60,7 @@ func loadRepository(settings *Settings) (*Repository, error) {
 		},
 	}
 
-	git, err := newGitSCM()
+	git, err := newGitSCM(homepath)
 
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (repo *Repository) Get(name string, version string, targetpath string) erro
 			}
 		}
 
-		return scm.Get(Expand(site.URL, properties), repo.settings.repoPath(name), version, targetpath)
+		return scm.Get(Expand(site.URL, properties), name, version, targetpath)
 	}
 
 	return gserrors.Newf(nil, "invalid import path %s", name)
