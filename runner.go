@@ -4,11 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/gsdocker/gsconfig"
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
@@ -135,8 +132,7 @@ type Runner struct {
 	tasks        map[string]*taskGroup // register tasks
 	checkerOfDCG []*taskGroup          // DCG check stack
 	packages     map[string]*Package   //  loaded packages
-	properties   Properties            // properties
-	downloader   *Downloader           // downloader
+	repository   *Repository           // Repository
 }
 
 // NewRunner create new task runner
@@ -148,7 +144,7 @@ func NewRunner(name string, path string, root string) *Runner {
 		path:   path,
 		rundir: gsos.CurrentDir(),
 		name:   name,
-		rcdir:  filepath.Join(path, gsconfig.String("gsmake.rundir", ".run")),
+		rcdir:  Workspace(root, name),
 		tasks:  make(map[string]*taskGroup),
 	}
 }
@@ -173,42 +169,6 @@ func (runner *Runner) StartDir() string {
 	return runner.rundir
 }
 
-// Link link package to target path
-func (runner *Runner) Link(name string, version string, target string) error {
-
-	path, err := runner.searchpackage(name, version)
-
-	if err != nil {
-		return err
-	}
-
-	err = os.Symlink(path, target)
-
-	if err != nil {
-		return gserrors.Newf(err, "link %s:%s package error", name, version)
-	}
-
-	return nil
-}
-
-func (runner *Runner) searchpackage(name string, version string) (string, error) {
-
-	// first search local repo
-	repopath := filepath.Join(runner.root, "packages", name, version)
-
-	if gsos.IsExist(repopath) {
-		return repopath, nil
-	}
-
-	err := runner.downloader.Download(name, version, repopath)
-
-	if err != nil {
-		return "", gserrors.Newf(err, "unknown package %s:%s", name, version)
-	}
-
-	return repopath, nil
-}
-
 // PackageProperty get package property by name
 func (runner *Runner) PackageProperty(name string, key string, target interface{}) bool {
 
@@ -223,22 +183,6 @@ func (runner *Runner) PackageProperty(name string, key string, target interface{
 	}
 
 	return false
-}
-
-// Property get property by name
-func (runner *Runner) Property(key string, target interface{}) bool {
-
-	v, ok := runner.properties[key]
-
-	if !ok {
-		return ok
-	}
-
-	content, _ := json.Marshal(v)
-
-	json.Unmarshal(content, target)
-
-	return ok
 }
 
 // Name current package name
@@ -282,15 +226,14 @@ func (runner *Runner) unmark() {
 // Run run task
 func (runner *Runner) Run(name string, args ...string) error {
 
-	loader, err := Load(runner.root, runner.path, scopeRuntimes)
+	loader, err := Load(runner.root, runner.path, stageRuntimes)
 
 	if err != nil {
 		return err
 	}
 
 	runner.packages = loader.packages
-	runner.properties = loader.properties
-	runner.downloader = loader.downloader
+	runner.repository = loader.repository
 
 	//DFS Topo sort
 

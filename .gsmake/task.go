@@ -91,9 +91,15 @@ func TaskSetup(context *gsmake.Runner, args ...string) error {
 
 			name := filepath.Base(target)
 
+			source := filepath.Join(context.ResourceDir(), "bin", name)
+
+			target := filepath.Join(path, "bin", name)
+
+			context.I("go install :\n\tfrom :%s\n\tto :%s", source, target)
+
 			_, err := gsos.Copy(
-				filepath.Join(context.ResourceDir(), "bin", name),
-				filepath.Join(path, "bin", name),
+				source,
+				target,
 				false,
 			)
 
@@ -112,38 +118,12 @@ func TaskList(context *gsmake.Runner, args ...string) error {
 	return nil
 }
 
-// TaskDev setup package develop enverioment
-func TaskDev(context *gsmake.Runner, args ...string) error {
-
-	if len(args) == 0 {
-		context.E("expect package name")
-		return nil
-	}
-
-	linktarget := filepath.Join(context.StartDir(), filepath.Base(args[0]))
-
-	if gsos.IsExist(linktarget) {
-
-		context.E("package directory already exists\n\t%s", linktarget)
-
-		return nil
-	}
-
-	err := context.Link(args[0], "current", linktarget)
-
-	if err != nil {
-		return err
-	}
-
-	context.I("setup package [%s] develop environment -- success", args[0])
-
-	return nil
-}
-
 // TaskAtom setup package develop enverioment
 func TaskAtom(context *gsmake.Runner, args ...string) error {
 
 	context.I("start atom ...")
+
+	context.I("gopath :%s", os.Getenv("GOPATH"))
 
 	cmd := exec.Command("atom", context.StartDir())
 
