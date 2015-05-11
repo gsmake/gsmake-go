@@ -73,7 +73,7 @@ func main() {
 		pkg := &gsmake.Package{
 			Name: "github.com/gsdocker/gsmake.tmp",
 			Import: []gsmake.Import{
-				{Name: "github.com/gsdocker/gsmake"},
+				{Name: "github.com/gsdocker/gsmake", Version: "release/v1.0"},
 			},
 		}
 
