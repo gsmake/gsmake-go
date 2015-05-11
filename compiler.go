@@ -12,7 +12,6 @@ import (
 
 	"go/format"
 
-	"github.com/gsdocker/gsconfig"
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
@@ -21,19 +20,18 @@ import (
 // AOTCompiler aot compiler for package
 type AOTCompiler struct {
 	gslogger.Log                     // Mixin gslogger .
-	root         string              // gsmake Root path
 	name         string              // build project
-	path         string              // compile package path
-	gopath       string              // compile gopath
-	binarypath   string              // generate task program path
+	binarypath   string              // binary path
+	homepath     string              // gsmake home path
+	path         string              // package path
 	tpl          *template.Template  // code generate tmplate
 	packages     map[string]*Package // load packages
 }
 
 // Compile invoke aot compile for current package which path is ${packagedir}
-func Compile(root string, packagedir string) (*AOTCompiler, error) {
+func Compile(homepath string, path string) (*AOTCompiler, error) {
 
-	loader, err := Load(root, packagedir, scopeTask)
+	loader, err := Load(homepath, path, stageTask)
 
 	if err != nil {
 		return nil, err
@@ -56,15 +54,14 @@ func Compile(root string, packagedir string) (*AOTCompiler, error) {
 
 	compiler := &AOTCompiler{
 		Log:      gslogger.Get("gsmake"),
-		root:     loader.root,
-		name:     loader.pkg.Name,
-		path:     loader.path,
-		gopath:   filepath.Join(loader.path, gsconfig.String("gsmake.taskdir", ".task")),
+		name:     loader.name,
+		homepath: loader.homepath,
 		tpl:      tpl,
+		path:     path,
 		packages: loader.packages,
 	}
 
-	compiler.binarypath = filepath.Join(compiler.gopath, "bin", "__gsmake_task"+gsos.ExeSuffix)
+	compiler.binarypath = filepath.Join(BinaryDir(compiler.homepath, compiler.name), "__gsmake_task"+gsos.ExeSuffix)
 
 	return compiler, compiler.compile()
 }
@@ -73,11 +70,11 @@ func Compile(root string, packagedir string) (*AOTCompiler, error) {
 func (compiler *AOTCompiler) Run(args ...string) error {
 
 	gopath := os.Getenv("GOPATH")
-
-	err := os.Setenv("GOPATH", filepath.Join(compiler.path, gsconfig.String("gsmake.rundir", ".run")))
+	newgopath := RuntimesStageGOPATH(compiler.homepath, compiler.name)
+	err := os.Setenv("GOPATH", newgopath)
 
 	if err != nil {
-		return gserrors.Newf(err, "set new gopath error\n\t%s", compiler.gopath)
+		return gserrors.Newf(err, "set new gopath error\n\t%s", newgopath)
 	}
 
 	defer func() {
@@ -95,7 +92,7 @@ func (compiler *AOTCompiler) Run(args ...string) error {
 
 func (compiler *AOTCompiler) compile() error {
 
-	srcRoot := filepath.Join(compiler.path, gsconfig.String("gsmake.taskdir", ".task"), "src/gsmake.task")
+	srcRoot := TaskStageImportDir(compiler.homepath, compiler.name, "gsmake.task")
 
 	if gsos.IsExist(srcRoot) {
 		err := os.RemoveAll(srcRoot)
@@ -119,7 +116,7 @@ func (compiler *AOTCompiler) compile() error {
 
 	context.Name = compiler.name
 	context.Path = compiler.path
-	context.Root = compiler.root
+	context.Root = compiler.homepath
 
 	err = compiler.gencodes(&context, filepath.Join(srcRoot, "main.go"), "main.go")
 
@@ -157,12 +154,12 @@ func (compiler *AOTCompiler) genbinary(srcRoot string) error {
 
 	gopath := os.Getenv("GOPATH")
 
-	newgopath := compiler.gopath //fmt.Sprintf("%s%s%s", compiler.gopath, string(os.PathListSeparator), gopath)
+	newgopath := TaskStageGOPATH(compiler.homepath, compiler.name)
 
 	err := os.Setenv("GOPATH", newgopath)
 
 	if err != nil {
-		return gserrors.Newf(err, "set new gopath error\n\t%s", compiler.gopath)
+		return gserrors.Newf(err, "set new gopath error\n\t%s", newgopath)
 	}
 
 	defer func() {

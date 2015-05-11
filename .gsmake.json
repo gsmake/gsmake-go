@@ -29,8 +29,6 @@
             "description":"install current package"
         },
 
-        "dev" : {"description":"setup package develop environment"},
-
         "list" : {"description":"list loade task"},
 
         "atom" : {"description":"start atom"}
