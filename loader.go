@@ -222,11 +222,31 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 
 	if name == "" {
 		loader.name = pkg.Name
+
+		if pkg.Name != "github.com/gsdocker/gsmake" {
+			found := false
+
+			for _, importpath := range pkg.Import {
+				if importpath.Name == "github.com/gsdocker/gsmake" {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				pkg.Import = append(pkg.Import, Import{Name: "github.com/gsdocker/gsmake", Stage: "task"})
+			}
+		}
+
 	}
 
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
 
 	for _, importir := range pkg.Import {
+
+		if _, ok := loader.packages[importir.Name]; ok {
+			continue
+		}
 
 		if importir.Version == "" {
 			importir.Version = "current"

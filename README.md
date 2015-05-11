@@ -6,9 +6,9 @@ gsmake is a build automation software which is develop by pure go language
 
 > 1. install golang sdk
 > 2. install git
-> 3. git clone https://github.com/gsdocker/gsmake.git
+> 3. go get github.com/gsdocker/gsmake
 > 4. cd {gsmake source dir}
-> 5. ./gsmake.sh setup {install dir}
+> 5. run ./setup {install dir}
 > 6. append {install dir}/bin to system env $PATH
 
 ## usage
