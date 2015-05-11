@@ -23,6 +23,7 @@ type AOTCompiler struct {
 	name         string              // build project
 	binarypath   string              // binary path
 	homepath     string              // gsmake home path
+	path         string              // package path
 	tpl          *template.Template  // code generate tmplate
 	packages     map[string]*Package // load packages
 }
@@ -56,6 +57,7 @@ func Compile(homepath string, path string) (*AOTCompiler, error) {
 		name:     loader.name,
 		homepath: loader.homepath,
 		tpl:      tpl,
+		path:     path,
 		packages: loader.packages,
 	}
 
@@ -113,7 +115,7 @@ func (compiler *AOTCompiler) compile() error {
 	}
 
 	context.Name = compiler.name
-	context.Path = Workspace(compiler.homepath, compiler.name)
+	context.Path = compiler.path
 	context.Root = compiler.homepath
 
 	err = compiler.gencodes(&context, filepath.Join(srcRoot, "main.go"), "main.go")
@@ -152,7 +154,7 @@ func (compiler *AOTCompiler) genbinary(srcRoot string) error {
 
 	gopath := os.Getenv("GOPATH")
 
-	newgopath := (compiler.name)
+	newgopath := TaskStageGOPATH(compiler.homepath, compiler.name)
 
 	err := os.Setenv("GOPATH", newgopath)
 

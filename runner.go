@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/gsdocker/gsconfig"
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
@@ -146,7 +144,7 @@ func NewRunner(name string, path string, root string) *Runner {
 		path:   path,
 		rundir: gsos.CurrentDir(),
 		name:   name,
-		rcdir:  filepath.Join(path, gsconfig.String("gsmake.rundir", ".run")),
+		rcdir:  Workspace(root, name),
 		tasks:  make(map[string]*taskGroup),
 	}
 }

@@ -69,7 +69,7 @@ func Expand(content string, properties Properties) string {
 type Import struct {
 	Name    string // import package name
 	Version string // import package version
-	Stage   string // runtimes import flag, default is AOT import
+	Stage   string `json:"scope"` // runtimes import flag, default is AOT import
 }
 
 // Task package defined task description
@@ -164,8 +164,6 @@ func (loader *Loader) load(path string) error {
 
 	loader.packages[pkg.Name] = pkg
 
-	loader.name = pkg.Name
-
 	target := filepath.Join(Workspace(loader.homepath, loader.name), "src", loader.name)
 
 	if gsos.IsExist(target) {
@@ -222,6 +220,10 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 		return nil, gserrors.Newf(ErrPackage, "package name must be %s\n\tpath :%s", name, path)
 	}
 
+	if name == "" {
+		loader.name = pkg.Name
+	}
+
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
 
 	for _, importir := range pkg.Import {
@@ -246,6 +248,7 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 			importpath = TaskStageImportDir(loader.homepath, loader.name, importir.Name)
 		} else {
 			importpath = RuntimesStageImportDir(loader.homepath, loader.name, importir.Name)
+
 		}
 
 		err = loader.repository.Get(importir.Name, importir.Version, importpath)

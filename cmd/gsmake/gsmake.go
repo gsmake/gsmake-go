@@ -30,6 +30,10 @@ func main() {
 
 	flag.Parse()
 
+	if !*verbflag {
+		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
+	}
+
 	defer func() {
 		if e := recover(); e != nil {
 			log.E("recover :%s", e)
