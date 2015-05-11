@@ -30,7 +30,7 @@ func TaskCompile(context *gsmake.Runner, args ...string) error {
 	if context.PackageProperty(context.Name(), "goinstall", &goinstall) {
 
 		for _, target := range goinstall {
-			targetfile := filepath.Join(context.ResourceDir(), "bin", filepath.Base(target))
+			targetfile := filepath.Join(context.ResourceDir(), "bin", filepath.Base(target)+gsos.ExeSuffix)
 
 			context.I("[gocompiler] generate target :%s", filepath.Base(target))
 
@@ -91,9 +91,9 @@ func TaskSetup(context *gsmake.Runner, args ...string) error {
 
 			name := filepath.Base(target)
 
-			source := filepath.Join(context.ResourceDir(), "bin", name)
+			source := filepath.Join(context.ResourceDir(), "bin", name+gsos.ExeSuffix)
 
-			target := filepath.Join(path, "bin", name)
+			target := filepath.Join(path, "bin", name+gsos.ExeSuffix)
 
 			context.I("go install :\n\tfrom :%s\n\tto :%s", source, target)
 

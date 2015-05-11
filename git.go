@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
 	"github.com/gsdocker/gsos/uuid"
@@ -101,9 +102,9 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 	}
 
 	if gsos.IsExist(targetpath) {
-		err := os.RemoveAll(targetpath)
+		err := gsos.RemoveAll(targetpath)
 		if err != nil {
-			return err
+			return gserrors.Newf(err, "git scm remove target dir error")
 		}
 	}
 
