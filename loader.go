@@ -80,8 +80,8 @@ type Task struct {
 
 // Site package host site
 type Site struct {
-	Name    string // the site's name
-	SCM     string // the scm url pattern
+	SCM     string // the site's name
+	URL     string // the scm url pattern
 	Package string // the site support package name pattern
 }
 
@@ -93,6 +93,7 @@ type Package struct {
 	Task       map[string]Task // package defined task
 	Site       map[string]Site // vcs site list
 	Properties Properties      // properties
+	origin     string          // package origin path
 }
 
 // Loader package loader
@@ -134,14 +135,21 @@ func Load(homepath string, name string, stage stageType) (*Loader, error) {
 		return nil, err
 	}
 
-	return nil, nil
+	return loader, nil
 }
 
 func (loader *Loader) load() error {
 
-	loader.settings.clearworkimport(loader.name)
+	path := loader.settings.devpath(loader.name)
 
-	path := loader.settings.worksrcpath(loader.name)
+	if !gsos.IsExist(path) {
+
+		err := loader.repository.Get(loader.name, "current", path)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	pkg, err := loader.loadpackage(loader.name, path)
 
@@ -149,7 +157,7 @@ func (loader *Loader) load() error {
 		return err
 	}
 
-	loader.rootpackage = pkg
+	loader.packages[pkg.Name] = pkg
 
 	return nil
 }
@@ -175,6 +183,7 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 		return &Package{
 			Name:    name,
 			Version: "current",
+			origin:  path,
 		}, nil
 	}
 
@@ -206,7 +215,15 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 			continue
 		}
 
-		importpath, err := loader.repository.Search(importir.Name, importir.Version)
+		var importpath string
+
+		if loader.stage == stageTask {
+			importpath = loader.settings.taskPath(loader.name, importir.Name)
+		} else {
+			importpath = loader.settings.runtimesPath(loader.name, importir.Name)
+		}
+
+		err = loader.repository.Get(importir.Name, importir.Version, importpath)
 
 		if err != nil {
 			return nil, err
