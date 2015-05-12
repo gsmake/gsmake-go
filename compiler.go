@@ -87,7 +87,7 @@ func (compiler *AOTCompiler) Run(args ...string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	return cmd.Run()
+	return cmd.Start()
 }
 
 func (compiler *AOTCompiler) compile() error {

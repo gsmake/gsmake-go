@@ -112,5 +112,5 @@ func main() {
 		compiler.Run(flag.Args()...)
 	}
 
-	return
+	log.D("exist gsmake")
 }
