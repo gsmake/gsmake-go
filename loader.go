@@ -201,7 +201,7 @@ func (loader *Loader) load(path string) error {
 		return gserrors.Newf(err, "create workspace error")
 	}
 
-	err = gsos.Symlink(fullpath, target)
+	err = os.Symlink(fullpath, target)
 
 	if err != nil {
 		return gserrors.Newf(err, "link package to workspace error")
