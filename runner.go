@@ -137,8 +137,7 @@ type Runner struct {
 
 // NewRunner create new task runner
 func NewRunner(name string, path string, root string) *Runner {
-
-	return &Runner{
+	runner := &Runner{
 		Log:    gslogger.Get("gsmake"),
 		root:   root,
 		path:   path,
@@ -147,12 +146,28 @@ func NewRunner(name string, path string, root string) *Runner {
 		rcdir:  Workspace(root, name),
 		tasks:  make(map[string]*taskGroup),
 	}
+
+	loader, err := Load(runner.root, runner.path, stageRuntimes)
+
+	if err != nil {
+		panic(err)
+	}
+
+	runner.packages = loader.packages
+	runner.repository = loader.repository
+
+	return runner
 }
 
 // Package query package by name
 func (runner *Runner) Package(name string) (pkg *Package, ok bool) {
 	pkg, ok = runner.packages[name]
 	return
+}
+
+// Update update current package
+func (runner *Runner) Update(name string) error {
+	return runner.repository.Update(name)
 }
 
 // Packages loop loade packages
@@ -225,15 +240,6 @@ func (runner *Runner) unmark() {
 
 // Run run task
 func (runner *Runner) Run(name string, args ...string) error {
-
-	loader, err := Load(runner.root, runner.path, stageRuntimes)
-
-	if err != nil {
-		return err
-	}
-
-	runner.packages = loader.packages
-	runner.repository = loader.repository
 
 	//DFS Topo sort
 

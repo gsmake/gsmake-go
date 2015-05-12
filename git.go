@@ -41,6 +41,37 @@ func (git *gitSCM) Cmd() string {
 	return git.cmd
 }
 
+// Update implement SCM interface func
+func (git *gitSCM) Update(url string, name string) error {
+	repopath := RepoDir(git.homepath, name)
+
+	if !gsos.IsDir(repopath) {
+		return gserrors.Newf(ErrPackage, "package %s not cached", name)
+	}
+
+	currentDir := gsos.CurrentDir()
+
+	if err := os.Chdir(repopath); err != nil {
+		return gserrors.Newf(err, "git change current dir to work path error")
+	}
+
+	command := exec.Command(git.name, "pull")
+
+	command.Stderr = os.Stderr
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+
+	err := command.Run()
+
+	os.Chdir(currentDir)
+
+	if err != nil {
+		return gserrors.Newf(err, "exec error :git pull")
+	}
+
+	return nil
+}
+
 // Get implement SCM interface func
 func (git *gitSCM) Get(url string, name string, version string, targetpath string) error {
 

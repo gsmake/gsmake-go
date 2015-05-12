@@ -18,6 +18,31 @@ func TaskResources(context *gsmake.Runner, args ...string) error {
 	return nil
 }
 
+// TaskUpdate .
+func TaskUpdate(context *gsmake.Runner, args ...string) error {
+
+	var name string
+
+	if len(args) != 0 {
+		name = args[0]
+	}
+
+	if name == "" {
+		fmt.Printf("%s package name :", context.Name())
+
+		bio := bufio.NewReader(os.Stdin)
+		line, _, err := bio.ReadLine()
+
+		if err != nil {
+			return gserrors.Newf(err, "read update package name error")
+		}
+
+		name = string(line)
+	}
+
+	return context.Update(name)
+}
+
 // TaskCompile .
 func TaskCompile(context *gsmake.Runner, args ...string) error {
 

@@ -127,7 +127,7 @@ func Load(homepath string, path string, stage stageType) (*Loader, error) {
 	}
 
 	// load respository
-	repo, err := loadRepository(loader.homepath)
+	repo, err := newRepository(loader.homepath)
 
 	if err != nil {
 		return nil, err
@@ -164,6 +164,31 @@ func (loader *Loader) load(path string) error {
 
 	loader.packages[pkg.Name] = pkg
 
+	if _, ok := loader.packages["github.com/gsdocker/gsmake"]; !ok {
+		var importpath string
+
+		if loader.stage == stageTask {
+			importpath = TaskStageImportDir(loader.homepath, loader.name, "github.com/gsdocker/gsmake")
+		} else {
+			importpath = RuntimesStageImportDir(loader.homepath, loader.name, "github.com/gsdocker/gsmake")
+
+		}
+
+		err = loader.repository.Get("github.com/gsdocker/gsmake", "current", importpath)
+
+		if err != nil {
+			return err
+		}
+
+		importpkg, err := loader.loadpackage("github.com/gsdocker/gsmake", importpath)
+
+		if err != nil {
+			return err
+		}
+
+		loader.packages[importpkg.Name] = importpkg
+	}
+
 	target := filepath.Join(Workspace(loader.homepath, loader.name), "src", loader.name)
 
 	if gsos.IsExist(target) {
@@ -176,7 +201,7 @@ func (loader *Loader) load(path string) error {
 		return gserrors.Newf(err, "create workspace error")
 	}
 
-	err = os.Symlink(fullpath, target)
+	err = gsos.Symlink(fullpath, target)
 
 	if err != nil {
 		return gserrors.Newf(err, "link package to workspace error")
@@ -222,22 +247,6 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 
 	if name == "" {
 		loader.name = pkg.Name
-
-		if pkg.Name != "github.com/gsdocker/gsmake" {
-			found := false
-
-			for _, importpath := range pkg.Import {
-				if importpath.Name == "github.com/gsdocker/gsmake" {
-					found = true
-					break
-				}
-			}
-
-			if !found {
-				pkg.Import = append(pkg.Import, Import{Name: "github.com/gsdocker/gsmake", Stage: "task"})
-			}
-		}
-
 	}
 
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)

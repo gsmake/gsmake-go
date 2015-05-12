@@ -31,6 +31,8 @@
 
         "list" : {"description":"list loade task"},
 
+        "update" : {"description":"update cached package by scm"},
+
         "atom" : {"description":"start atom"}
     },
 

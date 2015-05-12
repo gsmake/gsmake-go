@@ -27,6 +27,7 @@ type SCM interface {
 	fmt.Stringer
 	Cmd() string
 	Get(repo string, name string, version string, target string) error
+	Update(repo string, name string) error
 }
 
 // Repository gsmake package repository proxy
@@ -36,7 +37,7 @@ type Repository struct {
 	scm      map[string]SCM  // register scm
 }
 
-func loadRepository(homepath string) (*Repository, error) {
+func newRepository(homepath string) (*Repository, error) {
 	repo := &Repository{
 		homepath: homepath,
 	}
@@ -73,30 +74,26 @@ func loadRepository(homepath string) (*Repository, error) {
 	return repo, nil
 }
 
-// Get search gsmake package by package name and package version
-func (repo *Repository) Get(name string, version string, targetpath string) error {
-
-	// TODO: first check the package's scm
-
+func (repo *Repository) calcURL(name string) (SCM, string, error) {
 	prefix := name[:strings.IndexRune(name, '/')]
 
 	if site, ok := repo.sites[prefix]; ok {
 		scm, ok := repo.scm[site.SCM]
 
 		if !ok {
-			return gserrors.Newf(ErrImportPath, "not support remote site(%s) scm : %s", prefix, site.SCM)
+			return nil, "", gserrors.Newf(ErrImportPath, "not support remote site(%s) scm : %s", prefix, site.SCM)
 		}
 
 		matcher, err := regexp.Compile(site.Package)
 
 		if err != nil {
-			return gserrors.Newf(err, "compile site(%s) import path regexp error", prefix)
+			return nil, "", gserrors.Newf(err, "compile site(%s) import path regexp error", prefix)
 		}
 
 		m := matcher.FindStringSubmatch(name)
 
 		if m == nil {
-			return gserrors.Newf(ErrImportPath, "invalid import path for vcs site(%s) : %s", prefix, name)
+			return nil, "", gserrors.Newf(ErrImportPath, "invalid import path for vcs site(%s) : %s", prefix, name)
 		}
 
 		// Build map of named subexpression matches for expand.
@@ -109,8 +106,32 @@ func (repo *Repository) Get(name string, version string, targetpath string) erro
 			}
 		}
 
-		return scm.Get(Expand(site.URL, properties), name, version, targetpath)
+		return scm, Expand(site.URL, properties), nil
 	}
 
-	return gserrors.Newf(nil, "invalid import path %s", name)
+	return nil, "", gserrors.Newf(nil, "invalid import path %s", name)
+}
+
+// Update update cached package
+func (repo *Repository) Update(name string) error {
+
+	scm, url, err := repo.calcURL(name)
+
+	if err != nil {
+		return nil
+	}
+
+	return scm.Update(url, name)
+}
+
+// Get search gsmake package by package name and package version
+func (repo *Repository) Get(name string, version string, targetpath string) error {
+
+	scm, url, err := repo.calcURL(name)
+
+	if err != nil {
+		return nil
+	}
+
+	return scm.Get(url, name, version, targetpath)
 }
