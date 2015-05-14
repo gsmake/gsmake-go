@@ -31,7 +31,7 @@
 
         "cache":{
             "prev":"test",
-            "description":"cache current develop package to gsmake cache space"
+            "description":"link develop package into gsmake cache space"
         },
 
         "list" : {"description":"list loade task"},
