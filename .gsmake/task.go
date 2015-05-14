@@ -116,7 +116,7 @@ func TaskSetup(context *gsmake.Runner, args ...string) error {
 
 			name := filepath.Base(target)
 
-			source := filepath.Join(context.ResourceDir(), "bin", name+gsos.ExeSuffix)
+			source := filepath.Join(context.Workspace(), "bin", name+gsos.ExeSuffix)
 
 			target := filepath.Join(path, "bin", name+gsos.ExeSuffix)
 

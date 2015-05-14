@@ -106,6 +106,9 @@ func main() {
 	}
 
 	if *verbflag {
+
+		log.I("verb .... ")
+
 		args := append([]string{"-v"}, flag.Args()...)
 		compiler.Run(args...)
 	} else {

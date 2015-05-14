@@ -148,16 +148,20 @@ func NewRunner(name string, path string, root string) *Runner {
 		tasks:  make(map[string]*taskGroup),
 	}
 
+	return runner
+}
+
+// Start .
+func (runner *Runner) Start() error {
 	loader, err := Load(runner.root, runner.path, stageRuntimes)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	runner.packages = loader.packages
 	runner.repository = loader.repository
-
-	return runner
+	return nil
 }
 
 // Package query package by name
