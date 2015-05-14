@@ -112,6 +112,13 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 
 	currentDir := gsos.CurrentDir()
 
+	// fix windows git can't handle symlink repo directory bug
+	realpath, err := os.Readlink(repopath)
+
+	if err == nil {
+		repopath = realpath
+	}
+
 	if err := os.Chdir(repopath); err != nil {
 		return err
 	}
@@ -126,7 +133,7 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 
-	err := command.Run()
+	err = command.Run()
 
 	os.Chdir(currentDir)
 
