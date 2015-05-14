@@ -206,8 +206,8 @@ func (runner *Runner) Name() string {
 	return runner.name
 }
 
-// ResourceDir runtime resource dir
-func (runner *Runner) ResourceDir() string {
+// Workspace runtime Workspace dir
+func (runner *Runner) Workspace() string {
 	return runner.rcdir
 }
 
