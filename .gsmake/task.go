@@ -137,6 +137,13 @@ func TaskSetup(context *gsmake.Runner, args ...string) error {
 	return nil
 }
 
+// TaskCache implement cache task
+func TaskCache(context *gsmake.Runner, args ...string) error {
+
+	return context.Cache()
+
+}
+
 // TaskList list loaded tasks
 func TaskList(context *gsmake.Runner, args ...string) error {
 	context.PrintTask()

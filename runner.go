@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/gsdocker/gserrors"
@@ -208,6 +209,18 @@ func (runner *Runner) Name() string {
 // ResourceDir runtime resource dir
 func (runner *Runner) ResourceDir() string {
 	return runner.rcdir
+}
+
+// Cache link develop package into gsmake cache space
+func (runner *Runner) Cache() error {
+
+	repopath := RepoDir(runner.root, runner.name)
+
+	if gsos.IsExist(repopath) {
+		os.RemoveAll(repopath)
+	}
+
+	return os.Symlink(runner.path, repopath)
 }
 
 // Task register task
