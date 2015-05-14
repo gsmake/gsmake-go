@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/gsdocker/gserrors"
@@ -147,16 +148,20 @@ func NewRunner(name string, path string, root string) *Runner {
 		tasks:  make(map[string]*taskGroup),
 	}
 
+	return runner
+}
+
+// Start .
+func (runner *Runner) Start() error {
 	loader, err := Load(runner.root, runner.path, stageRuntimes)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	runner.packages = loader.packages
 	runner.repository = loader.repository
-
-	return runner
+	return nil
 }
 
 // Package query package by name
@@ -205,9 +210,21 @@ func (runner *Runner) Name() string {
 	return runner.name
 }
 
-// ResourceDir runtime resource dir
-func (runner *Runner) ResourceDir() string {
+// Workspace runtime Workspace dir
+func (runner *Runner) Workspace() string {
 	return runner.rcdir
+}
+
+// Cache link develop package into gsmake cache space
+func (runner *Runner) Cache() error {
+
+	repopath := RepoDir(runner.root, runner.name)
+
+	if gsos.IsExist(repopath) {
+		os.RemoveAll(repopath)
+	}
+
+	return os.Symlink(runner.path, repopath)
 }
 
 // Task register task

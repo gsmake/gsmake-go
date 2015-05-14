@@ -29,6 +29,11 @@
             "description":"install current package"
         },
 
+        "cache":{
+            "prev":"test",
+            "description":"link develop package into gsmake cache space"
+        },
+
         "list" : {"description":"list loade task"},
 
         "update" : {"description":"update cached package by scm"},

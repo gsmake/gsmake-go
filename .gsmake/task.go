@@ -55,15 +55,15 @@ func TaskCompile(context *gsmake.Runner, args ...string) error {
 	if context.PackageProperty(context.Name(), "goinstall", &goinstall) {
 
 		for _, target := range goinstall {
-			targetfile := filepath.Join(context.ResourceDir(), "bin", filepath.Base(target)+gsos.ExeSuffix)
+			targetfile := filepath.Join(context.Workspace(), "bin", filepath.Base(target)+gsos.ExeSuffix)
 
 			context.I("[gocompiler] generate target :%s", filepath.Base(target))
 
 			cmd := exec.Command("go", "build", "-o", targetfile, filepath.Join(context.Name(), target))
 
 			cmd.Stdin = os.Stdin
-
 			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 
 			err := cmd.Run()
 
@@ -116,7 +116,7 @@ func TaskSetup(context *gsmake.Runner, args ...string) error {
 
 			name := filepath.Base(target)
 
-			source := filepath.Join(context.ResourceDir(), "bin", name+gsos.ExeSuffix)
+			source := filepath.Join(context.Workspace(), "bin", name+gsos.ExeSuffix)
 
 			target := filepath.Join(path, "bin", name+gsos.ExeSuffix)
 
@@ -135,6 +135,13 @@ func TaskSetup(context *gsmake.Runner, args ...string) error {
 	}
 
 	return nil
+}
+
+// TaskCache implement cache task
+func TaskCache(context *gsmake.Runner, args ...string) error {
+
+	return context.Cache()
+
 }
 
 // TaskList list loaded tasks

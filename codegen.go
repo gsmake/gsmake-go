@@ -15,6 +15,7 @@ import "github.com/gsdocker/gsmake"
 
 var context = gsmake.NewRunner("{{.Name}}","{{ospath .Path}}","{{ospath .Root}}")
 var verbflag = flag.Bool("v", false, "print more debug information")
+
 func main(){
 
     flag.Parse()
@@ -27,6 +28,12 @@ func main(){
     if !*verbflag {
 		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
 	}
+
+    if err := context.Start(); err != nil {
+        context.E("%s",err)
+        gslogger.Join()
+        os.Exit(1)
+    }
 
     context.I("run task [%s] with args : %s",flag.Arg(0),strings.Join(flag.Args()[1:]," "))
 

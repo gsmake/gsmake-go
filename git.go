@@ -75,6 +75,8 @@ func (git *gitSCM) Update(url string, name string) error {
 // Get implement SCM interface func
 func (git *gitSCM) Get(url string, name string, version string, targetpath string) error {
 
+	git.D("get package :%s", name)
+
 	repopath := RepoDir(git.homepath, name)
 
 	// if the local repo not exist, then clone it from host site
@@ -133,6 +135,9 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 	}
 
 	if gsos.IsExist(targetpath) {
+
+		git.D("remove exist linked package :%s", targetpath)
+
 		err := gsos.RemoveAll(targetpath)
 		if err != nil {
 			return gserrors.Newf(err, "git scm remove target dir error")
