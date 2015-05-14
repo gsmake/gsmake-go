@@ -94,6 +94,8 @@ func (compiler *AOTCompiler) compile() error {
 
 	srcRoot := TaskStageImportDir(compiler.homepath, compiler.name, "gsmake.task")
 
+	compiler.D("srcroot :%s", srcRoot)
+
 	if gsos.IsExist(srcRoot) {
 		err := os.RemoveAll(srcRoot)
 
@@ -161,6 +163,8 @@ func (compiler *AOTCompiler) genbinary(srcRoot string) error {
 	if err != nil {
 		return gserrors.Newf(err, "set new gopath error\n\t%s", newgopath)
 	}
+
+	compiler.D("GOPATH:\n/%s", newgopath)
 
 	defer func() {
 		os.Setenv("GOPATH", gopath)
