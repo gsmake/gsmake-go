@@ -221,7 +221,11 @@ func (runner *Runner) Cache() error {
 	repopath := RepoDir(runner.root, runner.name)
 
 	if gsos.IsExist(repopath) {
-		os.RemoveAll(repopath)
+		err := os.RemoveAll(repopath)
+
+		if err != nil {
+			return gserrors.Newf(err, "cache package error")
+		}
 	}
 
 	return os.Symlink(runner.path, repopath)
