@@ -26,6 +26,7 @@ func SearchCmd(name string) (string, error) {
 type SCM interface {
 	fmt.Stringer
 	Cmd() string
+	Create(repo string, name string, version string) (string, error)
 	Get(repo string, name string, version string, target string) error
 	Update(repo string, name string) error
 }
@@ -122,6 +123,18 @@ func (repo *Repository) Update(name string) error {
 	}
 
 	return scm.Update(url, name)
+}
+
+// Create create cached package
+func (repo *Repository) Create(name string, version string) (string, error) {
+
+	scm, url, err := repo.calcURL(name)
+
+	if err != nil {
+		return "", nil
+	}
+
+	return scm.Create(url, name, version)
 }
 
 // Get search gsmake package by package name and package version

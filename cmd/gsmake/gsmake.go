@@ -26,6 +26,8 @@ var rootflag = flag.String("root", "", "the gsmake's root path")
 
 func main() {
 
+	currentdir := gsos.CurrentDir()
+
 	log := gslogger.Get("gsmake")
 
 	flag.Parse()
@@ -107,9 +109,9 @@ func main() {
 
 	if *verbflag {
 		args := append([]string{"-v"}, flag.Args()...)
-		compiler.Run(args...)
+		compiler.Run(currentdir, args...)
 	} else {
-		compiler.Run(flag.Args()...)
+		compiler.Run(currentdir, flag.Args()...)
 	}
 
 	log.D("exist gsmake")

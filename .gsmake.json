@@ -34,6 +34,8 @@
             "description":"link develop package into gsmake cache space"
         },
 
+        "archetype" : {"description":"using archetype package to start a new package develop"},
+
         "list" : {"description":"list loade task"},
 
         "update" : {"description":"update cached package by scm"},

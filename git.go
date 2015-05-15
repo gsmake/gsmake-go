@@ -72,11 +72,7 @@ func (git *gitSCM) Update(url string, name string) error {
 	return nil
 }
 
-// Get implement SCM interface func
-func (git *gitSCM) Get(url string, name string, version string, targetpath string) error {
-
-	git.D("get package :%s", name)
-
+func (git *gitSCM) Create(url string, name string, version string) (string, error) {
 	repopath := RepoDir(git.homepath, name)
 
 	// if the local repo not exist, then clone it from host site
@@ -87,12 +83,12 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 
 		if err := os.MkdirAll(cachedir, 0755); err != nil {
 
-			return err
+			return repopath, err
 		}
 
 		if err := os.MkdirAll(filepath.Dir(repopath), 0755); err != nil {
 
-			return err
+			return repopath, err
 		}
 
 		command := exec.Command(git.cmd, "clone", url, cachedir)
@@ -102,11 +98,11 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 		command.Stdout = os.Stdout
 
 		if err := command.Run(); err != nil {
-			return err
+			return repopath, err
 		}
 
 		if err := gsos.CopyDir(cachedir, repopath); err != nil {
-			return err
+			return repopath, err
 		}
 	}
 
@@ -120,7 +116,7 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 	}
 
 	if err := os.Chdir(repopath); err != nil {
-		return err
+		return "", err
 	}
 
 	if version == "current" {
@@ -136,6 +132,20 @@ func (git *gitSCM) Get(url string, name string, version string, targetpath strin
 	err = command.Run()
 
 	os.Chdir(currentDir)
+
+	if err != nil {
+		return "", err
+	}
+
+	return repopath, nil
+}
+
+// Get implement SCM interface func
+func (git *gitSCM) Get(url string, name string, version string, targetpath string) error {
+
+	git.D("get package :%s", name)
+
+	repopath, err := git.Create(url, name, version)
 
 	if err != nil {
 		return err

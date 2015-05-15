@@ -124,11 +124,11 @@ func (group *taskGroup) invoke(runner *Runner, args ...string) error {
 // Runner gsmake task runner
 type Runner struct {
 	gslogger.Log                       // mixin Logger
-	root         string                // gsmake root path
-	path         string                // current running package path
+	homepath     string                // gsmake root path
+	workspace    string                // runtime resources dir
 	name         string                // current running package name
-	rcdir        string                // runtime resources dir
-	rundir       string                // start running directory
+	path         string                // root package path
+	startdir     string                // start running directory
 	current      *Task                 // current execute task
 	tasks        map[string]*taskGroup // register tasks
 	checkerOfDCG []*taskGroup          // DCG check stack
@@ -137,15 +137,15 @@ type Runner struct {
 }
 
 // NewRunner create new task runner
-func NewRunner(name string, path string, root string) *Runner {
+func NewRunner(name string, path string, homepath string) *Runner {
 	runner := &Runner{
-		Log:    gslogger.Get("gsmake"),
-		root:   root,
-		path:   path,
-		rundir: gsos.CurrentDir(),
-		name:   name,
-		rcdir:  Workspace(root, name),
-		tasks:  make(map[string]*taskGroup),
+		Log:       gslogger.Get("gsmake"),
+		name:      name,
+		path:      path,
+		homepath:  homepath,
+		startdir:  gsos.CurrentDir(),
+		workspace: Workspace(homepath, name),
+		tasks:     make(map[string]*taskGroup),
 	}
 
 	return runner
@@ -153,7 +153,7 @@ func NewRunner(name string, path string, root string) *Runner {
 
 // Start .
 func (runner *Runner) Start() error {
-	loader, err := Load(runner.root, runner.path, stageRuntimes)
+	loader, err := Load(runner.homepath, runner.path, stageRuntimes)
 
 	if err != nil {
 		return err
@@ -175,7 +175,7 @@ func (runner *Runner) Update(name string) error {
 	return runner.repository.Update(name)
 }
 
-// Packages loop loade packages
+// Packages loop loaded packages
 func (runner *Runner) Packages(f func(*Package) bool) {
 	for _, pkg := range runner.packages {
 		if !f(pkg) {
@@ -186,7 +186,12 @@ func (runner *Runner) Packages(f func(*Package) bool) {
 
 // StartDir task runner start directory
 func (runner *Runner) StartDir() string {
-	return runner.rundir
+	return runner.startdir
+}
+
+// Repo .
+func (runner *Runner) Repo() *Repository {
+	return runner.repository
 }
 
 // PackageProperty get package property by name
@@ -212,13 +217,18 @@ func (runner *Runner) Name() string {
 
 // Workspace runtime Workspace dir
 func (runner *Runner) Workspace() string {
-	return runner.rcdir
+	return runner.workspace
+}
+
+// Home gsmake home path
+func (runner *Runner) Home() string {
+	return runner.homepath
 }
 
 // Cache link develop package into gsmake cache space
 func (runner *Runner) Cache() error {
 
-	repopath := RepoDir(runner.root, runner.name)
+	repopath := RepoDir(runner.homepath, runner.name)
 
 	if gsos.IsExist(repopath) {
 		err := os.RemoveAll(repopath)
