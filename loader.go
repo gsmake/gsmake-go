@@ -156,14 +156,6 @@ func (loader *Loader) load(path string) error {
 		return gserrors.Newf(ErrPackage, "package not found :%s", fullpath)
 	}
 
-	if loader.stage == stageTask {
-		importpath := TaskStageImportDir(loader.homepath, loader.name, "")
-		os.RemoveAll(importpath)
-	} else {
-		importpath := RuntimesStageImportDir(loader.homepath, loader.name, "")
-		os.RemoveAll(importpath)
-	}
-
 	pkg, err := loader.loadpackage("", fullpath)
 
 	if err != nil {
@@ -255,6 +247,18 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 
 	if name == "" {
 		loader.name = pkg.Name
+
+		var importpath string
+
+		if loader.stage == stageTask {
+			importpath = RuntimesStageImportDir(loader.homepath, loader.name, "")
+		} else {
+			importpath = TaskStageImportDir(loader.homepath, loader.name, "")
+		}
+
+		if err := os.RemoveAll(importpath); err != nil {
+			return nil, err
+		}
 	}
 
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
