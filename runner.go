@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gsdocker/gserrors"
@@ -228,6 +229,10 @@ func (runner *Runner) Home() string {
 // Cache link develop package into gsmake cache space
 func (runner *Runner) Cache() error {
 
+	if !gsos.IsExist(filepath.Join(runner.startdir, ".gsmake.json")) {
+		return gserrors.Newf(nil, "expect .gsmake.json file")
+	}
+
 	repopath := RepoDir(runner.homepath, runner.name)
 
 	if gsos.IsExist(repopath) {
@@ -237,6 +242,8 @@ func (runner *Runner) Cache() error {
 			return gserrors.Newf(err, "cache package error")
 		}
 	}
+
+	runner.D("link:\n\tsrc:%s\n\ttarget:%s", runner.path, repopath)
 
 	return os.Symlink(runner.path, repopath)
 }
