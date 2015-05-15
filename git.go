@@ -79,7 +79,7 @@ func (git *gitSCM) Create(url string, name string, version string) (string, erro
 	if !gsos.IsDir(repopath) {
 
 		// first clone package into cache dir
-		cachedir := filepath.Join(os.TempDir(), uuid.NewV1().String())
+		cachedir := filepath.Join(os.TempDir(), uuid.New())
 
 		if err := os.MkdirAll(cachedir, 0755); err != nil {
 

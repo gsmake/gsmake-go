@@ -68,7 +68,7 @@ func main() {
 
 		packagedir = fullpath
 	} else {
-		dir := uuid.NewV1().String()
+		dir := uuid.New()
 
 		packagedir = filepath.Join(os.TempDir(), dir)
 
