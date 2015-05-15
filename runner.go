@@ -236,7 +236,7 @@ func (runner *Runner) Cache() error {
 	repopath := RepoDir(runner.homepath, runner.name)
 
 	if gsos.IsExist(repopath) {
-		err := os.RemoveAll(repopath)
+		err := gsos.RemoveAll(repopath)
 
 		if err != nil {
 			return gserrors.Newf(err, "cache package error")

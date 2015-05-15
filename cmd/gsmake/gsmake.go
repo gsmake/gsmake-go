@@ -100,12 +100,14 @@ func main() {
 
 	log.D("package path :%s", packagedir)
 	log.D("gsmake root path :%s", homepath)
-
+	log.I("prepare gsmake runner ...")
 	compiler, err := gsmake.Compile(homepath, packagedir)
 
 	if err != nil {
 		panic(err)
 	}
+
+	log.I("prepare gsmake runner -- success")
 
 	if *verbflag {
 		args := append([]string{"-v"}, flag.Args()...)
@@ -113,6 +115,4 @@ func main() {
 	} else {
 		compiler.Run(currentdir, flag.Args()...)
 	}
-
-	log.D("exist gsmake")
 }

@@ -192,7 +192,7 @@ func (loader *Loader) load(path string) error {
 	target := filepath.Join(Workspace(loader.homepath, loader.name), "src", loader.name)
 
 	if gsos.IsExist(target) {
-		os.RemoveAll(target)
+		gsos.RemoveAll(target)
 	}
 
 	err = os.MkdirAll(filepath.Dir(target), 0755)
@@ -256,8 +256,10 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 			importpath = TaskStageImportDir(loader.homepath, loader.name, "")
 		}
 
-		if err := os.RemoveAll(importpath); err != nil {
-			return nil, err
+		if gsos.IsExist(importpath) {
+			if err := gsos.RemoveAll(importpath); err != nil {
+				return nil, err
+			}
 		}
 	}
 

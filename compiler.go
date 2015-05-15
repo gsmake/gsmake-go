@@ -69,6 +69,8 @@ func Compile(homepath string, path string) (*AOTCompiler, error) {
 // Run run compiler generate program
 func (compiler *AOTCompiler) Run(startdir string, args ...string) error {
 
+	compiler.I("run gsmake task ...")
+
 	currentDir := gsos.CurrentDir()
 
 	if err := os.Chdir(startdir); err != nil {

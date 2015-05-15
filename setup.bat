@@ -1,1 +1,1 @@
-go run .\cmd\gsmake\gsmake.go -root %1 setup %1
+go run .\cmd\gsmake\gsmake.go -v -root %1 setup %1
