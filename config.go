@@ -31,6 +31,11 @@ func Workspace(homepath string, packagename string) string {
 	return filepath.Join(homepath, "workspace", packagename)
 }
 
+// WorkspaceImportDir .
+func WorkspaceImportDir(homepath string, packagename string) string {
+	return filepath.Join(homepath, "workspace", packagename, "src", packagename)
+}
+
 // TaskStageImportDir calc task stage import package root directory
 func TaskStageImportDir(homepath string, packagename string, importpath string) string {
 	return filepath.Join(homepath, "task", packagename, "src", importpath)

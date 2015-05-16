@@ -99,23 +99,37 @@ type Package struct {
 
 // Loader package loader
 type Loader struct {
-	gslogger.Log                     // mixin Log APIs
-	packages     map[string]*Package // loaded packages
-	checkerOfDCG []*Package          // DCG check stack
-	stage        stageType           // loader exec stage
-	repository   *Repository         // gsmake repository
-	name         string              // load package name
-	homepath     string              // gsmake home path
-	rootpackage  *Package            // load root pacakge
+	gslogger.Log                          // mixin Log APIs
+	packages     map[string]*Package      // loaded packages
+	checkerOfDCG []*Package               // DCG check stack
+	stage        stageType                // loader exec stage
+	repository   *Repository              // gsmake repository
+	name         string                   // load package name
+	homepath     string                   // gsmake home path
+	rootpackage  *Package                 // load root pacakge
+	nocached     bool                     // load cache flag
+	cached       map[string]string        // cached package's index
+	importdir    func(name string) string // calculator of importdir
 }
 
 // Load load package
-func Load(homepath string, path string, stage stageType) (*Loader, error) {
+func Load(homepath string, path string, stage stageType, nocached bool) (*Loader, error) {
 
 	loader := &Loader{
 		Log:      gslogger.Get("gsmake"),
 		packages: make(map[string]*Package),
 		stage:    stage,
+		nocached: nocached,
+	}
+
+	if stage == stageTask {
+		loader.importdir = func(name string) string {
+			return TaskStageImportDir(loader.homepath, loader.name, name)
+		}
+	} else {
+		loader.importdir = func(name string) string {
+			return RuntimesStageImportDir(loader.homepath, loader.name, name)
+		}
 	}
 
 	var err error
@@ -144,74 +158,134 @@ func Load(homepath string, path string, stage stageType) (*Loader, error) {
 	return loader, nil
 }
 
+func (loader *Loader) loadpackage(name string, version string) (*Package, error) {
+	cachedpath := loader.importdir(name)
+
+	cachedversion, ok := loader.cached[name]
+
+	if loader.nocached || !ok || cachedversion != version {
+
+		err := loader.repository.Get(name, version, cachedpath)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// update cached index
+	loader.cached[name] = version
+
+	importpkg, err := loader.loadpackagev2(version, cachedpath)
+
+	return importpkg, err
+}
+
 func (loader *Loader) load(path string) error {
 
-	fullpath, err := filepath.Abs(path)
+	var err error
+
+	path, err = filepath.Abs(path)
 
 	if err != nil {
 		return gserrors.Newf(err, "get load package fullpath error :%s", path)
 	}
 
-	if !gsos.IsExist(fullpath) {
-		return gserrors.Newf(ErrPackage, "package not found :%s", fullpath)
-	}
+	// first of all read the package's name
+	jsonfile := filepath.Join(path, NameConfigFile)
 
-	pkg, err := loader.loadpackage("", fullpath)
+	pkg, err := loader.loadjson(jsonfile)
 
 	if err != nil {
 		return err
 	}
 
+	loader.name = pkg.Name
+
+	var indexfile string
+
+	if loader.stage == stageTask {
+		indexfile = TaskStageImportDir(loader.homepath, loader.name, "")
+	} else {
+		indexfile = RuntimesStageImportDir(loader.homepath, loader.name, "")
+	}
+
+	indexfile = filepath.Join(indexfile, ".cached")
+
+	if gsos.IsExist(indexfile) {
+		// load cached package'a index
+		content, err := ioutil.ReadFile(indexfile)
+
+		if err != nil {
+			return gserrors.Newf(err, "read cache index file error")
+		}
+
+		if err := json.Unmarshal(content, &loader.cached); err != nil {
+			return gserrors.Newf(err, "read cache index file error")
+		}
+	} else {
+		loader.cached = make(map[string]string)
+	}
+
+	// try link current package to workspace
+	targetdir := WorkspaceImportDir(loader.homepath, loader.name)
+
+	if !gsos.SameFile(path, targetdir) {
+
+		// if target is exist
+		if gsos.IsExist(targetdir) {
+			gsos.RemoveAll(targetdir)
+		} else {
+			// try make parent directory
+			err = os.MkdirAll(filepath.Dir(targetdir), 0755)
+
+			if err != nil {
+				return gserrors.Newf(err, "create workspace error")
+			}
+		}
+
+		// do symbol link
+		err = os.Symlink(path, targetdir)
+
+		if err != nil {
+			return gserrors.Newf(err, "link package to workspace error")
+		}
+	}
+
+	// now try doload package
+
+	pkg, err = loader.loadpackagev2(loader.name, path)
+
 	loader.packages[pkg.Name] = pkg
 
+	// check if had loaded package github.com/gsdocker/gsmake
+
 	if _, ok := loader.packages["github.com/gsdocker/gsmake"]; !ok {
-		var importpath string
 
-		if loader.stage == stageTask {
-			importpath = TaskStageImportDir(loader.homepath, loader.name, "github.com/gsdocker/gsmake")
-		} else {
-			importpath = RuntimesStageImportDir(loader.homepath, loader.name, "github.com/gsdocker/gsmake")
-
-		}
-
-		err = loader.repository.Get("github.com/gsdocker/gsmake", "current", importpath)
+		pkg, err := loader.loadpackage("github.com/gsdocker/gsmake", "current")
 
 		if err != nil {
-			return err
+			return gserrors.Newf(err, "load package github.com/gsdocker/gsmake error")
 		}
 
-		importpkg, err := loader.loadpackage("github.com/gsdocker/gsmake", importpath)
-
-		if err != nil {
-			return err
-		}
-
-		loader.packages[importpkg.Name] = importpkg
+		loader.packages[pkg.Name] = pkg
 	}
 
-	target := filepath.Join(Workspace(loader.homepath, loader.name), "src", loader.name)
-
-	if gsos.IsExist(target) {
-		gsos.RemoveAll(target)
-	}
-
-	err = os.MkdirAll(filepath.Dir(target), 0755)
+	// marshal cache index
+	content, err := json.Marshal(loader.cached)
 
 	if err != nil {
-		return gserrors.Newf(err, "create workspace error")
+		loader.W("save cache index error\n%s", err)
+		return nil
 	}
 
-	err = os.Symlink(fullpath, target)
-
-	if err != nil {
-		return gserrors.Newf(err, "link package to workspace error")
+	if err := ioutil.WriteFile(indexfile, content, 0644); err != nil {
+		loader.W("save cache index error\n%s", err)
 	}
 
 	return nil
 }
 
-func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
-	// check if already loaded this package
+func (loader *Loader) loadpackagev2(name string, path string) (*Package, error) {
 
 	if pkg, ok := loader.packages[name]; ok {
 		return pkg, nil
@@ -225,9 +299,7 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 	jsonfile := filepath.Join(path, NameConfigFile)
 
 	if !gsos.IsExist(jsonfile) {
-
 		// this package is a traditional golang package
-
 		return &Package{
 			Name:    name,
 			Version: "current",
@@ -241,66 +313,29 @@ func (loader *Loader) loadpackage(name string, path string) (*Package, error) {
 		return nil, err
 	}
 
-	if name != "" && pkg.Name != name {
-		return nil, gserrors.Newf(ErrPackage, "package name must be %s\n\tpath :%s", name, path)
-	}
-
-	if name == "" {
-		loader.name = pkg.Name
-
-		var importpath string
-
-		if loader.stage == stageTask {
-			importpath = RuntimesStageImportDir(loader.homepath, loader.name, "")
-		} else {
-			importpath = TaskStageImportDir(loader.homepath, loader.name, "")
-		}
-
-		if gsos.IsExist(importpath) {
-			if err := gsos.RemoveAll(importpath); err != nil {
-				return nil, err
-			}
-		}
-	}
-
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
 
-	for _, importir := range pkg.Import {
+	for _, importIR := range pkg.Import {
 
-		if _, ok := loader.packages[importir.Name]; ok {
+		if _, ok := loader.packages[importIR.Name]; ok {
 			continue
 		}
 
-		if importir.Version == "" {
-			importir.Version = "current"
+		if importIR.Version == "" {
+			importIR.Version = "current"
 		}
 
-		stage, err := stageParse(importir.Stage)
+		stage, err := stageParse(importIR.Stage)
 
 		if err != nil {
-			return nil, gserrors.Newf(err, "parse import [%s] scope error\n\t%s", importir.Name, path)
+			return nil, gserrors.Newf(err, "parse import [%s] scope error\n\t%s", importIR.Name, path)
 		}
 
 		if (stage & loader.stage) == 0 {
 			continue
 		}
 
-		var importpath string
-
-		if loader.stage == stageTask {
-			importpath = TaskStageImportDir(loader.homepath, loader.name, importir.Name)
-		} else {
-			importpath = RuntimesStageImportDir(loader.homepath, loader.name, importir.Name)
-
-		}
-
-		err = loader.repository.Get(importir.Name, importir.Version, importpath)
-
-		if err != nil {
-			return nil, err
-		}
-
-		importpkg, err := loader.loadpackage(importir.Name, importpath)
+		importpkg, err := loader.loadpackage(importIR.Name, importIR.Version)
 
 		if err != nil {
 			return nil, err

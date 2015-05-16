@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
@@ -21,6 +22,7 @@ Usage:
 Use "gsmake list" list all task
 `
 
+var cacheflag = flag.Bool("nocache", false, "using caching packages")
 var verbflag = flag.Bool("v", false, "print more debug information")
 var rootflag = flag.String("root", "", "the gsmake's root path")
 
@@ -38,7 +40,7 @@ func main() {
 
 	defer func() {
 		if e := recover(); e != nil {
-			log.E("recover :%s", e)
+			log.E("%s", e)
 			gslogger.Join()
 			os.Exit(1)
 		} else {
@@ -100,19 +102,38 @@ func main() {
 
 	log.D("package path :%s", packagedir)
 	log.D("gsmake root path :%s", homepath)
-	log.I("prepare gsmake runner ...")
-	compiler, err := gsmake.Compile(homepath, packagedir)
+
+	log.I("build gsmake runner ...")
+
+	startime := time.Now()
+
+	compiler, err := gsmake.Compile(homepath, packagedir, *cacheflag)
 
 	if err != nil {
 		panic(err)
 	}
 
-	log.I("prepare gsmake runner -- success")
+	log.I("build gsmake runner -- success %v", time.Now().Sub(startime))
+
+	args := []string{}
+
+	if *cacheflag {
+		args = append(args, "-nocache")
+	}
 
 	if *verbflag {
-		args := append([]string{"-v"}, flag.Args()...)
-		compiler.Run(currentdir, args...)
-	} else {
-		compiler.Run(currentdir, flag.Args()...)
+		args = append(args, "-v")
 	}
+
+	args = append(args, flag.Args()...)
+
+	log.I("exec gsmake runner ...")
+
+	startime = time.Now()
+
+	if err := compiler.Run(currentdir, args...); err != nil {
+		panic(err)
+	}
+
+	log.I("exec gsmake runner -- success %v", time.Now().Sub(startime))
 }

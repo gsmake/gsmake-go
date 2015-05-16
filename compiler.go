@@ -29,9 +29,9 @@ type AOTCompiler struct {
 }
 
 // Compile invoke aot compile for current package which path is ${packagedir}
-func Compile(homepath string, path string) (*AOTCompiler, error) {
+func Compile(homepath string, path string, nocached bool) (*AOTCompiler, error) {
 
-	loader, err := Load(homepath, path, stageTask)
+	loader, err := Load(homepath, path, stageTask, nocached)
 
 	if err != nil {
 		return nil, err
@@ -68,8 +68,6 @@ func Compile(homepath string, path string) (*AOTCompiler, error) {
 
 // Run run compiler generate program
 func (compiler *AOTCompiler) Run(startdir string, args ...string) error {
-
-	compiler.I("run gsmake task ...")
 
 	currentDir := gsos.CurrentDir()
 

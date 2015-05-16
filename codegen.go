@@ -13,8 +13,11 @@ import "strings"
 import "github.com/gsdocker/gslogger"
 import "github.com/gsdocker/gsmake"
 
-var context = gsmake.NewRunner("{{.Name}}","{{ospath .Path}}","{{ospath .Root}}")
+var cacheflag = flag.Bool("nocache", false, "using caching packages")
 var verbflag = flag.Bool("v", false, "print more debug information")
+
+var context = gsmake.NewRunner("{{.Name}}","{{ospath .Path}}","{{ospath .Root}}")
+
 
 func main(){
 
@@ -29,13 +32,13 @@ func main(){
 		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
 	}
 
-    if err := context.Start(); err != nil {
+    if err := context.Start(*cacheflag); err != nil {
         context.E("%s",err)
         gslogger.Join()
         os.Exit(1)
     }
 
-    context.I("run task [%s] with args : %s",flag.Arg(0),strings.Join(flag.Args()[1:]," "))
+    context.I("exec task [%s] with args : %s",flag.Arg(0),strings.Join(flag.Args()[1:]," "))
 
     if err := context.Run(flag.Arg(0),flag.Args()[1:]...); err != nil {
         context.E("%s",err)

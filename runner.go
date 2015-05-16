@@ -153,8 +153,8 @@ func NewRunner(name string, path string, homepath string) *Runner {
 }
 
 // Start .
-func (runner *Runner) Start() error {
-	loader, err := Load(runner.homepath, runner.path, stageRuntimes)
+func (runner *Runner) Start(nocached bool) error {
+	loader, err := Load(runner.homepath, runner.path, stageRuntimes, nocached)
 
 	if err != nil {
 		return err
