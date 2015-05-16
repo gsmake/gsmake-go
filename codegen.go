@@ -23,6 +23,8 @@ func main(){
 
     flag.Parse()
 
+    gslogger.Console("[$tag] $content", "")
+
     if flag.NArg() < 1 {
         fmt.Println("expect task name")
         os.Exit(1)

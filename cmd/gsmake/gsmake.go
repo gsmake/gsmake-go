@@ -30,6 +30,8 @@ func main() {
 
 	currentdir := gsos.CurrentDir()
 
+	gslogger.Console("[$tag] $content", "")
+
 	log := gslogger.Get("gsmake")
 
 	flag.Parse()
