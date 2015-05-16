@@ -14,7 +14,6 @@ import (
 
 // TaskResources .
 func TaskResources(context *gsmake.Runner, args ...string) error {
-	context.D("TODO: invoke gslang tools")
 	return nil
 }
 
