@@ -165,3 +165,25 @@ func TaskAtom(context *gsmake.Runner, args ...string) error {
 
 	return cmd.Run()
 }
+
+// TaskGotest implement gotest task
+func TaskGotest(context *gsmake.Runner, args ...string) error {
+
+	err := os.Chdir(context.StartDir())
+
+	if err != nil {
+		return err
+	}
+
+	newargs := []string{"test"}
+
+	newargs = append(newargs, args...)
+
+	cmd := exec.Command("go", newargs...)
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}

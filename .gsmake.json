@@ -40,7 +40,9 @@
 
         "update" : {"description":"update cached package by scm"},
 
-        "atom" : {"description":"start atom"}
+        "atom" : {"description":"start atom"},
+
+        "gotest" : {"prev":"resources","description":"invoke go test command"}
     },
 
     "properties" : {
