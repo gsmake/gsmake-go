@@ -57,10 +57,6 @@ func (git *gitSCM) Update(url string, name string) error {
 
 	command := exec.Command(git.name, "pull")
 
-	command.Stderr = os.Stderr
-	command.Stdin = os.Stdin
-	command.Stdout = os.Stdout
-
 	err := command.Run()
 
 	os.Chdir(currentDir)
@@ -93,10 +89,6 @@ func (git *gitSCM) Create(url string, name string, version string) (string, erro
 
 		command := exec.Command(git.cmd, "clone", url, cachedir)
 
-		command.Stderr = os.Stderr
-		command.Stdin = os.Stdin
-		command.Stdout = os.Stdout
-
 		if err := command.Run(); err != nil {
 			return repopath, err
 		}
@@ -124,10 +116,6 @@ func (git *gitSCM) Create(url string, name string, version string) (string, erro
 	}
 
 	command := exec.Command(git.name, "checkout", version)
-
-	command.Stderr = os.Stderr
-	command.Stdin = os.Stdin
-	command.Stdout = os.Stdout
 
 	err = command.Run()
 
