@@ -1,6 +1,7 @@
 package gsmake
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -8,7 +9,11 @@ import (
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos"
-	"github.com/gsdocker/gsos/uuid"
+)
+
+// ErrGit .
+var (
+	ErrGit = errors.New("git command error")
 )
 
 type gitSCM struct {
@@ -42,112 +47,145 @@ func (git *gitSCM) Cmd() string {
 }
 
 // Update implement SCM interface func
-func (git *gitSCM) Update(url string, name string) error {
+func (git *gitSCM) Update(url string, name string, version string) (string, error) {
+
 	repopath := RepoDir(git.homepath, name)
 
-	if !gsos.IsDir(repopath) {
-		return gserrors.Newf(ErrPackage, "package %s not cached", name)
+	git.D("package git repo\n\tname:%s\n\tpath:%s", name, repopath)
+
+	if !gsos.IsExist(repopath) {
+		return "", gserrors.Newf(ErrGit, "package repo not exist\n\tname:%s\n\tpath:%s", name, repopath)
 	}
 
-	currentDir := gsos.CurrentDir()
-
-	if err := os.Chdir(repopath); err != nil {
-		return gserrors.Newf(err, "git change current dir to work path error")
-	}
-
-	command := exec.Command(git.name, "pull")
-
-	err := command.Run()
-
-	os.Chdir(currentDir)
+	info, err := os.Lstat(repopath)
 
 	if err != nil {
-		return gserrors.Newf(err, "exec error :git pull")
+		return "", gserrors.Newf(err, "read repo dir info error")
 	}
 
-	return nil
-}
-
-func (git *gitSCM) Create(url string, name string, version string) (string, error) {
-	repopath := RepoDir(git.homepath, name)
-
-	// if the local repo not exist, then clone it from host site
-	if !gsos.IsDir(repopath) {
-
-		// first clone package into cache dir
-		cachedir := filepath.Join(os.TempDir(), uuid.New())
-
-		if err := os.MkdirAll(cachedir, 0755); err != nil {
-
-			return repopath, err
-		}
-
-		if err := os.MkdirAll(filepath.Dir(repopath), 0755); err != nil {
-
-			return repopath, err
-		}
-
-		command := exec.Command(git.cmd, "clone", url, cachedir)
-
-		if err := command.Run(); err != nil {
-			return repopath, err
-		}
-
-		if err := gsos.CopyDir(cachedir, repopath); err != nil {
-			return repopath, err
-		}
+	if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+		git.I("package[%s] git pull -- skipped, cached developing package", name)
 	}
 
-	currentDir := gsos.CurrentDir()
+	cmd := exec.Command("git", "pull", "--all")
 
-	// fix windows git can't handle symlink repo directory bug
-	realpath, err := os.Readlink(repopath)
+	cmd.Dir = repopath
 
-	if err == nil {
-		repopath = realpath
-	}
+	git.I("package[%s] git update --all ", name)
 
-	if err := os.Chdir(repopath); err != nil {
-		return "", err
-	}
-
-	if version == "current" {
-		version = "master"
-	}
-
-	command := exec.Command(git.name, "checkout", version)
-
-	err = command.Run()
-
-	os.Chdir(currentDir)
+	err = cmd.Run()
 
 	if err != nil {
-		return "", err
+		return "", gserrors.Newf(err, "err call :git pull")
 	}
 
 	return repopath, nil
 }
 
-// Get implement SCM interface func
-func (git *gitSCM) Get(url string, name string, version string, targetpath string) error {
+func (git *gitSCM) Create(url string, name string, version string) (string, error) {
 
-	git.D("get package :%s", name)
+	repopath := RepoDir(git.homepath, name)
 
-	repopath, err := git.Create(url, name, version)
+	git.D("package git repo\n\tname:%s\n\tpath:%s", name, repopath)
 
-	if err != nil {
-		return err
-	}
+	if !gsos.IsExist(repopath) {
 
-	if gsos.IsExist(targetpath) {
+		if err := os.MkdirAll(filepath.Dir(repopath), 0755); err != nil {
+			return "", gserrors.Newf(err, "create package repo error")
+		}
 
-		git.D("remove exist linked package :%s", targetpath)
+		cmd := exec.Command("git", "clone", url)
 
-		err := gsos.RemoveAll(targetpath)
+		cmd.Dir = filepath.Dir(repopath)
+
+		git.I("package[%s] git clone %s", name, url)
+
+		err := cmd.Run()
+
 		if err != nil {
-			return gserrors.Newf(err, "git scm remove target dir error")
+			return "", gserrors.Newf(err, "err call :git clone %s", url)
 		}
 	}
 
-	return gsos.CopyDir(repopath, targetpath)
+	return repopath, nil
+}
+
+func (git *gitSCM) Copy(name string, version string, targetpath string) error {
+
+	repopath := RepoDir(git.homepath, name)
+
+	git.D("package git repo\n\tname:%s\n\tpath:%s", name, repopath)
+
+	if !gsos.IsExist(repopath) {
+		return gserrors.Newf(ErrGit, "package repo not exist\n\tname:%s\n\tpath:%s", name, repopath)
+	}
+
+	if gsos.IsExist(targetpath) {
+		if err := gsos.RemoveAll(targetpath); err != nil {
+			return gserrors.Newf(err, "remove exist target directory error")
+		}
+	}
+
+	if err := gsos.CopyDir(repopath, targetpath); err != nil {
+		return gserrors.Newf(err, "copy cached package to target directory error")
+	}
+
+	// chdir to target directory and execute git checkout command
+
+	if version == "current" {
+		version = "master"
+	}
+
+	cmd := exec.Command("git", "checkout", version)
+
+	cmd.Dir = targetpath
+
+	err := cmd.Run()
+
+	if err != nil {
+		return gserrors.Newf(err, "git checkout")
+	}
+
+	return nil
+}
+
+// Cache cache package as global repo package
+func (git *gitSCM) Cache(name string, version string, source string) error {
+
+	repopath := RepoDir(git.homepath, name)
+
+	if gsos.SameFile(repopath, source) {
+		return nil
+	}
+
+	if err := gsos.RemoveAll(repopath); err != nil {
+		return gserrors.Newf(err, "remove global repo dir error")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(repopath), 0755); err != nil {
+		return gserrors.Newf(err, "create global repo dir error")
+	}
+
+	if err := gsos.Symlink(source, repopath); err != nil {
+		return gserrors.Newf(err, " cache package to global repo error")
+	}
+
+	return nil
+}
+
+// RemoveCache remove cached package
+func (git *gitSCM) RemoveCache(name string, version string, source string) error {
+
+	repopath := RepoDir(git.homepath, name)
+
+	if !gsos.SameFile(repopath, source) {
+		return nil
+	}
+
+	if err := gsos.RemoveAll(repopath); err != nil {
+		return gserrors.Newf(err, "remove cached repo dir error")
+	}
+
+	return nil
+
 }

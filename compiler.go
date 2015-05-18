@@ -69,12 +69,6 @@ func Compile(homepath string, path string, nocached bool) (*AOTCompiler, error) 
 // Run run compiler generate program
 func (compiler *AOTCompiler) Run(startdir string, args ...string) error {
 
-	currentDir := gsos.CurrentDir()
-
-	if err := os.Chdir(startdir); err != nil {
-		return err
-	}
-
 	gopath := os.Getenv("GOPATH")
 	newgopath := RuntimesStageGOPATH(compiler.homepath, compiler.name)
 	err := os.Setenv("GOPATH", newgopath)
@@ -85,10 +79,11 @@ func (compiler *AOTCompiler) Run(startdir string, args ...string) error {
 
 	defer func() {
 		os.Setenv("GOPATH", gopath)
-		os.Chdir(currentDir)
 	}()
 
 	cmd := exec.Command(compiler.binarypath, args...)
+
+	cmd.Dir = startdir
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

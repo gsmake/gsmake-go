@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -173,7 +172,9 @@ func (runner *Runner) Package(name string) (pkg *Package, ok bool) {
 
 // Update update current package
 func (runner *Runner) Update(name string) error {
-	return runner.repository.Update(name)
+	_, err := runner.repository.Update(name, "current")
+
+	return err
 }
 
 // Packages loop loaded packages
@@ -233,19 +234,17 @@ func (runner *Runner) Cache() error {
 		return gserrors.Newf(nil, "expect .gsmake.json file")
 	}
 
-	repopath := RepoDir(runner.homepath, runner.name)
+	return runner.repository.Cache(runner.name, "current", runner.StartDir())
+}
 
-	if gsos.IsExist(repopath) {
-		err := gsos.RemoveAll(repopath)
+// RemoveCache .
+func (runner *Runner) RemoveCache() error {
 
-		if err != nil {
-			return gserrors.Newf(err, "cache package error")
-		}
+	if !gsos.IsExist(filepath.Join(runner.startdir, ".gsmake.json")) {
+		return gserrors.Newf(nil, "expect .gsmake.json file")
 	}
 
-	runner.D("link:\n\tsrc:%s\n\ttarget:%s", runner.path, repopath)
-
-	return os.Symlink(runner.path, repopath)
+	return runner.repository.RemoveCache(runner.name, "current", runner.StartDir())
 }
 
 // Task register task

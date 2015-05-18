@@ -1,0 +1,3 @@
+#! /bin/sh
+go run ./cmd/gsmake/gsmake.go update
+go run ./cmd/gsmake/gsmake.go -nocache -v -root $1 setup $1

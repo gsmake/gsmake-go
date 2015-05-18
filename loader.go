@@ -141,7 +141,7 @@ func Load(homepath string, path string, stage stageType, nocached bool) (*Loader
 	}
 
 	// load respository
-	repo, err := newRepository(loader.homepath)
+	repo, err := openRepository(loader.homepath)
 
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func (loader *Loader) loadpackage(name string, version string) (*Package, error)
 
 	if loader.nocached || !ok || cachedversion != version {
 
-		err := loader.repository.Get(name, version, cachedpath)
+		err := loader.repository.Copy(name, version, cachedpath)
 
 		if err != nil {
 			return nil, err

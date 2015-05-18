@@ -3,11 +3,13 @@ package plugin
 import (
 	"flag"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gsmake"
 	"github.com/gsdocker/gsos"
+	"github.com/gsdocker/gsos/uuid"
 )
 
 // TaskArchetype implement task archetype
@@ -27,7 +29,9 @@ func TaskArchetype(runner *gsmake.Runner, args ...string) error {
 		return gserrors.Newf(nil, "usage : gsmake archetype -p {name} -v {version} {archetype name} {new package name}")
 	}
 
-	path, err := runner.Repo().Create(*name, *version)
+	path := filepath.Join(os.TempDir(), uuid.New())
+
+	err := runner.Repo().Copy(*name, *version, path)
 
 	if err != nil {
 		return err

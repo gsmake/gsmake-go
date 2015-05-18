@@ -34,11 +34,17 @@
             "description":"link develop package into gsmake cache space"
         },
 
+        "rmcache":{
+            "description":"remove develop package from gsmake cache space"
+        },
+
         "archetype" : {"description":"using archetype package to start a new package develop"},
 
         "list" : {"description":"list loade task"},
 
         "update" : {"description":"update cached package by scm"},
+
+        "updateall" : {"description":"update all cached packages"},
 
         "atom" : {"description":"start atom"},
 
