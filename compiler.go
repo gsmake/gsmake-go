@@ -29,9 +29,9 @@ type AOTCompiler struct {
 }
 
 // Compile invoke aot compile for current package which path is ${packagedir}
-func Compile(homepath string, path string, nocached bool) (*AOTCompiler, error) {
+func Compile(homepath string, path string, nocached bool, imports []Import) (*AOTCompiler, error) {
 
-	loader, err := Load(homepath, path, stageTask, nocached)
+	loader, err := Load(homepath, path, stageTask, nocached, imports)
 
 	if err != nil {
 		return nil, err

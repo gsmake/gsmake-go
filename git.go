@@ -1,6 +1,7 @@
 package gsmake
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -71,12 +72,16 @@ func (git *gitSCM) Update(url string, name string, version string) (string, erro
 
 	cmd.Dir = repopath
 
+	var buff bytes.Buffer
+
+	cmd.Stderr = &buff
+
 	git.I("package[%s] git update --all ", name)
 
 	err = cmd.Run()
 
 	if err != nil {
-		return "", gserrors.Newf(err, "err call :git pull")
+		return "", gserrors.Newf(err, "err call :git pull\n%s", buff.String())
 	}
 
 	return repopath, nil
@@ -96,6 +101,10 @@ func (git *gitSCM) Create(url string, name string, version string) (string, erro
 
 		cmd := exec.Command("git", "clone", url)
 
+		var buff bytes.Buffer
+
+		cmd.Stderr = &buff
+
 		cmd.Dir = filepath.Dir(repopath)
 
 		git.I("package[%s] git clone %s", name, url)
@@ -103,7 +112,7 @@ func (git *gitSCM) Create(url string, name string, version string) (string, erro
 		err := cmd.Run()
 
 		if err != nil {
-			return "", gserrors.Newf(err, "err call :git clone %s", url)
+			return "", gserrors.Newf(err, "err call :git clone %s\n%s", url, buff.String())
 		}
 	}
 
@@ -138,12 +147,16 @@ func (git *gitSCM) Copy(name string, version string, targetpath string) error {
 
 	cmd := exec.Command("git", "checkout", version)
 
+	var buff bytes.Buffer
+
+	cmd.Stderr = &buff
+
 	cmd.Dir = targetpath
 
 	err := cmd.Run()
 
 	if err != nil {
-		return gserrors.Newf(err, "git checkout")
+		return gserrors.Newf(err, "git checkout\n%s", buff.String())
 	}
 
 	return nil

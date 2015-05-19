@@ -113,7 +113,8 @@ func (repo *Repository) loadindex() error {
 }
 
 func (repo *Repository) calcURL(name string) (SCM, string, error) {
-	prefix := name[:strings.IndexRune(name, '/')]
+
+	prefix := strings.SplitN(name, "/", 2)[0]
 
 	if site, ok := repo.sites[prefix]; ok {
 		scm, ok := repo.scm[site.SCM]
@@ -156,7 +157,7 @@ func (repo *Repository) Update(name string, version string) (string, error) {
 	scm, url, err := repo.calcURL(name)
 
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return scm.Update(url, name, version)
@@ -168,7 +169,7 @@ func (repo *Repository) Create(name string, version string) (string, error) {
 	scm, url, err := repo.calcURL(name)
 
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return repo.create(scm, url, name, version)
@@ -208,7 +209,7 @@ func (repo *Repository) Cache(name string, version string, source string) error 
 	scm, _, err := repo.calcURL(name)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return scm.Cache(name, version, source)
@@ -220,7 +221,7 @@ func (repo *Repository) RemoveCache(name string, version string, source string) 
 	scm, _, err := repo.calcURL(name)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return scm.RemoveCache(name, version, source)
@@ -234,7 +235,7 @@ func (repo *Repository) UpdateAll() error {
 		scm, url, err := repo.calcURL(name)
 
 		if err != nil {
-			return nil
+			return err
 		}
 
 		for _, version := range versions {
@@ -256,7 +257,7 @@ func (repo *Repository) Copy(name string, version string, targetpath string) err
 	scm, url, err := repo.calcURL(name)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if _, err := repo.create(scm, url, name, version); err != nil {

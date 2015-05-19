@@ -113,7 +113,7 @@ type Loader struct {
 }
 
 // Load load package
-func Load(homepath string, path string, stage stageType, nocached bool) (*Loader, error) {
+func Load(homepath string, path string, stage stageType, nocached bool, imports []Import) (*Loader, error) {
 
 	loader := &Loader{
 		Log:      gslogger.Get("gsmake"),
@@ -155,7 +155,22 @@ func Load(homepath string, path string, stage stageType, nocached bool) (*Loader
 		return nil, err
 	}
 
+	for _, v := range imports {
+		pkg, err := loader.LoadPackage(v.Name, v.Version)
+
+		if err != nil {
+			return nil, err
+		}
+
+		loader.packages[pkg.Name] = pkg
+	}
+
 	return loader, nil
+}
+
+// LoadPackage .
+func (loader *Loader) LoadPackage(name string, version string) (*Package, error) {
+	return loader.loadpackage(name, version)
 }
 
 func (loader *Loader) loadpackage(name string, version string) (*Package, error) {
@@ -254,6 +269,10 @@ func (loader *Loader) load(path string) error {
 	// now try doload package
 
 	pkg, err = loader.loadpackagev2(loader.name, path)
+
+	if err != nil {
+		return err
+	}
 
 	loader.packages[pkg.Name] = pkg
 

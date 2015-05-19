@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gsdocker/gserrors"
@@ -22,9 +23,30 @@ Usage:
 Use "gsmake list" list all task
 `
 
+// ImportVars .
+type ImportVars struct {
+	imports []string // import packages
+}
+
+func (vars *ImportVars) String() string {
+	return "imports"
+}
+
+// Set .
+func (vars *ImportVars) Set(val string) error {
+	vars.imports = append(vars.imports, val)
+	return nil
+}
+
+var importVars ImportVars
+
 var cacheflag = flag.Bool("nocache", false, "using caching packages")
 var verbflag = flag.Bool("v", false, "print more debug information")
 var rootflag = flag.String("root", "", "the gsmake's root path")
+
+func init() {
+	flag.Var(&importVars, "import", "import addition package")
+}
 
 func main() {
 
@@ -42,7 +64,7 @@ func main() {
 
 	defer func() {
 		if e := recover(); e != nil {
-			log.E("%s", e)
+			log.E("%s", gserrors.Newf(e.(error), ""))
 			gslogger.Join()
 			os.Exit(1)
 		} else {
@@ -105,11 +127,27 @@ func main() {
 	log.D("package path :%s", packagedir)
 	log.D("gsmake root path :%s", homepath)
 
+	var imports []gsmake.Import
+
+	for _, importvar := range importVars.imports {
+		token := strings.SplitN(importvar, ":", 2)
+
+		version := "current"
+
+		if len(token) == 2 {
+			version = token[1]
+		}
+
+		log.I("addition import : %s:%s", token[0], version)
+
+		imports = append(imports, gsmake.Import{Name: token[0], Version: version})
+	}
+
 	log.I("build gsmake runner ...")
 
 	startime := time.Now()
 
-	compiler, err := gsmake.Compile(homepath, packagedir, *cacheflag)
+	compiler, err := gsmake.Compile(homepath, packagedir, *cacheflag, imports)
 
 	if err != nil {
 		panic(err)
