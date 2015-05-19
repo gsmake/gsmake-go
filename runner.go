@@ -132,8 +132,8 @@ type Runner struct {
 	current      *Task                 // current execute task
 	tasks        map[string]*taskGroup // register tasks
 	checkerOfDCG []*taskGroup          // DCG check stack
-	packages     map[string]*Package   //  loaded packages
 	repository   *Repository           // Repository
+	loader       *Loader               // package loader
 }
 
 // NewRunner create new task runner
@@ -151,6 +151,17 @@ func NewRunner(name string, path string, homepath string) *Runner {
 	return runner
 }
 
+// LoadPackage .
+func (runner *Runner) LoadPackage(name string, version string) (string, error) {
+	pkg, err := runner.loader.LoadPackage(name, version)
+
+	if err != nil {
+		return "", err
+	}
+
+	return pkg.origin, nil
+}
+
 // Start .
 func (runner *Runner) Start(nocached bool) error {
 	loader, err := Load(runner.homepath, runner.path, stageRuntimes, nocached, nil)
@@ -159,14 +170,14 @@ func (runner *Runner) Start(nocached bool) error {
 		return err
 	}
 
-	runner.packages = loader.packages
 	runner.repository = loader.repository
+	runner.loader = loader
 	return nil
 }
 
 // Package query package by name
 func (runner *Runner) Package(name string) (pkg *Package, ok bool) {
-	pkg, ok = runner.packages[name]
+	pkg, ok = runner.loader.packages[name]
 	return
 }
 
@@ -179,7 +190,7 @@ func (runner *Runner) Update(name string) error {
 
 // Packages loop loaded packages
 func (runner *Runner) Packages(f func(*Package) bool) {
-	for _, pkg := range runner.packages {
+	for _, pkg := range runner.loader.packages {
 		if !f(pkg) {
 			return
 		}

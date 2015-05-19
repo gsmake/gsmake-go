@@ -110,6 +110,7 @@ type Loader struct {
 	nocached     bool                     // load cache flag
 	cached       map[string]string        // cached package's index
 	importdir    func(name string) string // calculator of importdir
+	indexfile    string                   // indexfile
 }
 
 // Load load package
@@ -156,7 +157,7 @@ func Load(homepath string, path string, stage stageType, nocached bool, imports 
 	}
 
 	for _, v := range imports {
-		pkg, err := loader.LoadPackage(v.Name, v.Version)
+		pkg, err := loader.loadpackage(v.Name, v.Version)
 
 		if err != nil {
 			return nil, err
@@ -170,7 +171,18 @@ func Load(homepath string, path string, stage stageType, nocached bool, imports 
 
 // LoadPackage .
 func (loader *Loader) LoadPackage(name string, version string) (*Package, error) {
-	return loader.loadpackage(name, version)
+
+	pkg, err := loader.loadpackage(name, version)
+
+	if err != nil {
+		return nil, err
+	}
+
+	loader.packages[pkg.Name] = pkg
+
+	loader.savecache()
+
+	return pkg, nil
 }
 
 func (loader *Loader) loadpackage(name string, version string) (*Package, error) {
@@ -195,6 +207,51 @@ func (loader *Loader) loadpackage(name string, version string) (*Package, error)
 	return importpkg, err
 }
 
+func (loader *Loader) savecache() {
+	// marshal cache index
+	content, err := json.Marshal(loader.cached)
+
+	if err != nil {
+		loader.W("save cache index error\n%s", err)
+		return
+	}
+
+	if err := ioutil.WriteFile(loader.indexfile, content, 0644); err != nil {
+		loader.W("save cache index error\n%s", err)
+	}
+}
+
+func (loader *Loader) loadcache() error {
+	var indexfile string
+
+	if loader.stage == stageTask {
+		indexfile = TaskStageImportDir(loader.homepath, loader.name, "")
+	} else {
+		indexfile = RuntimesStageImportDir(loader.homepath, loader.name, "")
+	}
+
+	indexfile = filepath.Join(indexfile, ".cached")
+
+	loader.indexfile = indexfile
+
+	if gsos.IsExist(indexfile) {
+		// load cached package'a index
+		content, err := ioutil.ReadFile(indexfile)
+
+		if err != nil {
+			return gserrors.Newf(err, "read cache index file error")
+		}
+
+		if err := json.Unmarshal(content, &loader.cached); err != nil {
+			return gserrors.Newf(err, "read cache index file error")
+		}
+	} else {
+		loader.cached = make(map[string]string)
+	}
+
+	return nil
+}
+
 func (loader *Loader) load(path string) error {
 
 	var err error
@@ -216,29 +273,8 @@ func (loader *Loader) load(path string) error {
 
 	loader.name = pkg.Name
 
-	var indexfile string
-
-	if loader.stage == stageTask {
-		indexfile = TaskStageImportDir(loader.homepath, loader.name, "")
-	} else {
-		indexfile = RuntimesStageImportDir(loader.homepath, loader.name, "")
-	}
-
-	indexfile = filepath.Join(indexfile, ".cached")
-
-	if gsos.IsExist(indexfile) {
-		// load cached package'a index
-		content, err := ioutil.ReadFile(indexfile)
-
-		if err != nil {
-			return gserrors.Newf(err, "read cache index file error")
-		}
-
-		if err := json.Unmarshal(content, &loader.cached); err != nil {
-			return gserrors.Newf(err, "read cache index file error")
-		}
-	} else {
-		loader.cached = make(map[string]string)
+	if err := loader.loadcache(); err != nil {
+		return err
 	}
 
 	// try link current package to workspace
@@ -289,17 +325,7 @@ func (loader *Loader) load(path string) error {
 		loader.packages[pkg.Name] = pkg
 	}
 
-	// marshal cache index
-	content, err := json.Marshal(loader.cached)
-
-	if err != nil {
-		loader.W("save cache index error\n%s", err)
-		return nil
-	}
-
-	if err := ioutil.WriteFile(indexfile, content, 0644); err != nil {
-		loader.W("save cache index error\n%s", err)
-	}
+	loader.savecache()
 
 	return nil
 }
@@ -331,6 +357,8 @@ func (loader *Loader) loadpackagev2(name string, path string) (*Package, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	pkg.origin = path
 
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
 
