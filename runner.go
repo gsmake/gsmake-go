@@ -181,6 +181,17 @@ func (runner *Runner) Package(name string) (pkg *Package, ok bool) {
 	return
 }
 
+// PackagePath query package by name
+func (runner *Runner) PackagePath(name string) (string, bool) {
+	pkg, ok := runner.loader.packages[name]
+	if ok {
+		return pkg.origin, true
+	}
+
+	return "", false
+
+}
+
 // Update update current package
 func (runner *Runner) Update(name string) error {
 	_, err := runner.repository.Update(name, "current")
