@@ -316,7 +316,7 @@ func (loader *Loader) load(path string) error {
 
 	if _, ok := loader.packages["github.com/gsmake/gsmake"]; !ok {
 
-		pkg, err := loader.loadpackage("github.com/gsmake/gsmake", "current")
+		pkg, err := loader.loadpackage("github.com/gsmake/gsmake", "v1.2")
 
 		if err != nil {
 			return gserrors.Newf(err, "load package github.com/gsmake/gsmake error")
