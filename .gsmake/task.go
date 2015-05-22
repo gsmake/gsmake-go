@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/gsdocker/gserrors"
-	"github.com/gsdocker/gsmake"
 	"github.com/gsdocker/gsos"
+	"github.com/gsmake/gsmake"
 )
 
 // TaskResources .

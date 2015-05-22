@@ -1,5 +1,5 @@
 {
-    "name":"github.com/gsdocker/gsmake",
+    "name":"github.com/gsmake/gsmake",
 
     "import" : [
         {"name" : "github.com/gsdocker/gsos","scope":"task|runtimes"},

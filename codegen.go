@@ -11,7 +11,7 @@ import "fmt"
 import "flag"
 import "strings"
 import "github.com/gsdocker/gslogger"
-import "github.com/gsdocker/gsmake"
+import "github.com/gsmake/gsmake"
 
 var cacheflag = flag.Bool("nocache", false, "using caching packages")
 var verbflag = flag.Bool("v", false, "print more debug information")
@@ -56,7 +56,7 @@ func main(){
 
 {{define "project.go"}}
 package main
-import "github.com/gsdocker/gsmake"
+import "github.com/gsmake/gsmake"
 import task "{{.Name}}/.gsmake"
 
 func init(){

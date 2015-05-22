@@ -312,14 +312,14 @@ func (loader *Loader) load(path string) error {
 
 	loader.packages[pkg.Name] = pkg
 
-	// check if had loaded package github.com/gsdocker/gsmake
+	// check if had loaded package github.com/gsmake/gsmake
 
-	if _, ok := loader.packages["github.com/gsdocker/gsmake"]; !ok {
+	if _, ok := loader.packages["github.com/gsmake/gsmake"]; !ok {
 
-		pkg, err := loader.loadpackage("github.com/gsdocker/gsmake", "current")
+		pkg, err := loader.loadpackage("github.com/gsmake/gsmake", "current")
 
 		if err != nil {
-			return gserrors.Newf(err, "load package github.com/gsdocker/gsmake error")
+			return gserrors.Newf(err, "load package github.com/gsmake/gsmake error")
 		}
 
 		loader.packages[pkg.Name] = pkg

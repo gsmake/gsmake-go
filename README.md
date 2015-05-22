@@ -23,7 +23,7 @@ gsmake is a build automation software which is develop by pure go language
     "name":"github.com/gsdocker/sample",
 
     "import" : [
-        {"name" : "github.com/gsdocker/gsmake"}
+        {"name" : "github.com/gsmake/gsmake"}
     ],
 
     "task" : {
@@ -36,7 +36,7 @@ gsmake is a build automation software which is develop by pure go language
 ```go
 package plugin
 
-import "github.com/gsdocker/gsmake"
+import "github.com/gsmake/gsmake"
 
 // TaskHelloworld implement gsmake task helloworld .
 func TaskHelloworld(context *gsmake.Runner, args ...string) error {

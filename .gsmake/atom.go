@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/gsdocker/gsmake"
+	"github.com/gsmake/gsmake"
 )
 
 // TaskAtom setup package develop enverioment

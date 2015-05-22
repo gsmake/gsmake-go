@@ -11,7 +11,7 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-	"github.com/gsdocker/gsmake"
+	"github.com/gsmake/gsmake"
 	"github.com/gsdocker/gsos"
 	"github.com/gsdocker/gsos/uuid"
 )
@@ -105,7 +105,7 @@ func main() {
 		pkg := &gsmake.Package{
 			Name: "github.com/gsdocker/gsmake.tmp",
 			Import: []gsmake.Import{
-				{Name: "github.com/gsdocker/gsmake"},
+				{Name: "github.com/gsmake/gsmake"},
 			},
 		}
 

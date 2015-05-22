@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/gsdocker/gserrors"
-	"github.com/gsdocker/gsmake"
+	"github.com/gsmake/gsmake"
 	"github.com/gsdocker/gsos"
 	"github.com/gsdocker/gsos/uuid"
 )

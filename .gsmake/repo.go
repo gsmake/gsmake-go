@@ -1,6 +1,6 @@
 package plugin
 
-import "github.com/gsdocker/gsmake"
+import "github.com/gsmake/gsmake"
 
 // TaskList list loaded tasks
 func TaskList(context *gsmake.Runner, args ...string) error {
