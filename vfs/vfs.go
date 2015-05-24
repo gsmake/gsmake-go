@@ -21,7 +21,8 @@ const (
 
 // Errs
 var (
-	ErrNodeName = errors.New("unknown vfs node name")
+	ErrNodeName          = errors.New("unknown vfs node name")
+	ErrNodeAlreadyExists = errors.New("vfs node already exists")
 )
 
 // URL .
@@ -96,6 +97,21 @@ func (vfsurl *URL) String() string {
 	u.Query().Set("version", vfsurl.Version)
 
 	return u.String()
+}
+
+// Exists .
+func Exists(err error) bool {
+
+	for {
+		if e, ok := err.(gserrors.GSError); ok {
+			err = e.Origin()
+			continue
+		}
+
+		break
+	}
+
+	return err == ErrNodeAlreadyExists
 }
 
 // VFS gsmake root virtual file system

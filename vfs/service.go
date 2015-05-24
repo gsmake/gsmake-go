@@ -204,5 +204,13 @@ func (service *VFService) Update(path *URL) error {
 
 // Create create new file node{}
 func (service *VFService) Create(path *URL) error {
+
+	switch path.Root {
+	case NodeSync:
+	case NodeRT, NodeTask:
+	case NodeTemp:
+		return gserrors.Newf(ErrNodeName, "fnode[temp] not support create command")
+	}
+
 	return nil
 }
