@@ -27,3 +27,4 @@ _testmain.go
 .repo
 .install
 .run
+.lock
