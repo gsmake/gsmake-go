@@ -202,15 +202,48 @@ func (service *VFService) Update(path *URL) error {
 	return nil
 }
 
+// Exists .
+func (service *VFService) Exists(path *URL) bool {
+
+	fullpath, err := service.Native(path)
+
+	if err == nil {
+		return false
+	}
+
+	return nfs.Exists(fullpath)
+}
+
 // Create create new file node{}
 func (service *VFService) Create(path *URL) error {
 
 	switch path.Root {
 	case NodeSync:
+		if service.Exists(path) {
+			return gserrors.Newf(ErrNodeAlreadyExists, "already exists :%s", path)
+		}
+
+		return service.syncCreate(path)
+
 	case NodeRT, NodeTask:
+
+		if service.Exists(path) {
+			return gserrors.Newf(ErrNodeAlreadyExists, "already exists :%s", path)
+		}
+
+		return service.copyFromSync(path)
+
 	case NodeTemp:
 		return gserrors.Newf(ErrNodeName, "fnode[temp] not support create command")
 	}
 
+	return nil
+}
+
+func (service *VFService) copyFromSync(path *URL) error {
+	return nil
+}
+
+func (service *VFService) syncCreate(path *URL) error {
 	return nil
 }

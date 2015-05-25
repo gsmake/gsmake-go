@@ -21,10 +21,6 @@ func TestFLocker(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if flag, _ := FLocker.TryLock(); flag {
-			t.Fatal("try lock must return false       ")
-		}
-
 		if err := FLocker.Unlock(); err != nil {
 			t.Fatal(err)
 		}

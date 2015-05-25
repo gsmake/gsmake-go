@@ -6,12 +6,12 @@ import "syscall"
 
 // Lock acquires the lock, blocking
 func (lock FLocker) Lock() error {
-	return syscall.FLocker(int(lock.fh.Fd()), syscall.LOCK_EX)
+	return syscall.Flock(int(lock.fh.Fd()), syscall.LOCK_EX)
 }
 
 // TryLock acquires the lock, non-blocking
 func (lock FLocker) TryLock() (bool, error) {
-	err := syscall.FLocker(int(lock.fh.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	err := syscall.Flock(int(lock.fh.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 	switch err {
 	case nil:
 		return true, nil
@@ -23,5 +23,5 @@ func (lock FLocker) TryLock() (bool, error) {
 
 // Unlock releases the lock
 func (lock FLocker) Unlock() error {
-	return syscall.FLocker(int(lock.fh.Fd()), syscall.LOCK_UN)
+	return syscall.Flock(int(lock.fh.Fd()), syscall.LOCK_UN)
 }

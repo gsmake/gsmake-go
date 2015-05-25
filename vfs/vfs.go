@@ -116,7 +116,6 @@ func Exists(err error) bool {
 
 // VFS gsmake root virtual file system
 type VFS interface {
-
 	// Mount mount native os directory into vfs
 	Mount(native string, target *URL) error
 	// Dismount dismount native directory from vfs
@@ -129,4 +128,6 @@ type VFS interface {
 	Create(path *URL) error
 	// Native convert vfs path to native file path
 	Native(path *URL) (string, error)
+	// Exists check if vfs path is exists
+	Exists(path *URL) bool
 }

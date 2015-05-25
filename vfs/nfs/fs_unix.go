@@ -2,10 +2,7 @@
 
 package nfs
 
-import (
-	"os"
-	"syscall"
-)
+import "os"
 
 // windows special const variable defines
 const (
@@ -17,8 +14,3 @@ var RemoveAll = os.RemoveAll
 
 // Symlink .
 var Symlink = os.Symlink
-
-// FLocker file lock
-func FLocker(file *os.File) error {
-	return syscall.FLocker(int(file.Fd()), syscall.LOCK_EX)
-}
