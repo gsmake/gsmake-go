@@ -28,3 +28,4 @@ _testmain.go
 .install
 .run
 .lock
+vfs/test
