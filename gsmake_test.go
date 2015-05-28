@@ -3,7 +3,7 @@ package gsmake
 import "testing"
 
 func TestLoad(t *testing.T) {
-	_, err := load("./repo", "./")
+	_, err := load(".repo", "./")
 
 	if err != nil {
 		t.Fatal(err)
@@ -11,7 +11,7 @@ func TestLoad(t *testing.T) {
 }
 
 func TestCompile(t *testing.T) {
-	compiler, err := compile("./repo", "./")
+	compiler, err := compile(".repo", "./")
 
 	if err != nil {
 		t.Fatal(err)
