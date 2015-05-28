@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/gsdocker/gserrors"
@@ -134,21 +135,34 @@ type Runner struct {
 	rootfs       vfs.RootFS            // rootfs
 	rootpath     string                // gsmake root path
 	targetpath   string                // the processing root package path
+	currentpkg   *Package              // current handle package object
 }
 
 // NewRunner create new task runner
 func NewRunner(rootpath string, targetpath string) *Runner {
 
 	runner := &Runner{
-		Log:   gslogger.Get("gsmake"),
-		tasks: make(map[string]*taskGroup),
+		Log:        gslogger.Get("gsmake"),
+		tasks:      make(map[string]*taskGroup),
+		rootpath:   rootpath,
+		targetpath: targetpath,
 	}
 
 	return runner
 }
 
+// Current gsmake current handle pacakge
+func (runner *Runner) Current() string {
+	return fmt.Sprintf("gsmake://%s?domain=task", runner.currentpkg.Name)
+}
+
+// RootFS get rootfs object
+func (runner *Runner) RootFS() vfs.RootFS {
+	return runner.rootfs
+}
+
 // Start .
-func (runner *Runner) Start(nocached bool) error {
+func (runner *Runner) Start() error {
 	rootfs, err := vfs.New(runner.rootpath, runner.targetpath)
 
 	if err != nil {
@@ -156,6 +170,15 @@ func (runner *Runner) Start(nocached bool) error {
 	}
 
 	runner.rootfs = rootfs
+
+	jsonfile := filepath.Join(runner.targetpath, ".gsmake.json")
+
+	runner.currentpkg, err = loadjson(jsonfile)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

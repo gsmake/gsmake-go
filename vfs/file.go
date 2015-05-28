@@ -12,7 +12,7 @@ import (
 
 // ErrFileFS .
 var (
-	ErrFileFS = errors.New("git fs error")
+	ErrFileFS = errors.New("file fs error")
 )
 
 // FileFS git fs for gsmake vfs
@@ -45,12 +45,14 @@ func (fileFS *FileFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 	if !fs.Exists(dir) {
 		if err := fs.MkdirAll(dir, 0755); err != nil {
-			return gserrors.Newf(ErrFileFS, "create mount target dir error\n%s", dir)
+			return gserrors.Newf(ErrFileFS, "create mount target dir error\n\t%s", dir)
 		}
 	}
 
-	if err := fs.Symlink(fmt.Sprintf("%s%s", src.Host, src.Path), target.Mapping); err != nil {
-		return gserrors.Newf(ErrFileFS, "link dir error\n%s", dir)
+	srcpath := fmt.Sprintf("%s%s", src.Host, src.Path)
+
+	if err := fs.Symlink(srcpath, target.Mapping); err != nil {
+		return gserrors.Newf(err, "link dir error\n\tsrc: %s\n\ttarget: %s", srcpath, target.Mapping)
 	}
 
 	return nil

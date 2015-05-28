@@ -3,6 +3,7 @@
 package fs
 
 import (
+	"os"
 	"os/exec"
 
 	"github.com/gsdocker/gserrors"
@@ -27,11 +28,21 @@ func RemoveAll(dir string) error {
 	return nil
 }
 
-// Symlink improve os.Symlink
-func Symlink(src, dst string) error {
-	output, err := exec.Command("cmd", "/c", "mklink", "/j", dst, src).Output()
-	if err != nil {
-		return gserrors.Newf(err, string(output))
-	}
-	return nil
-}
+// Symlink fix os.Symlink bug on windows platform
+var Symlink = os.Symlink
+
+// func Symlink(src, dst string) error {
+//
+// 	cmd := exec.Command("cmd", "/u", "/c", "mklink", "/D", dst, src)
+//
+// 	var buff bytes.Buffer
+//
+// 	cmd.Stderr = &buff
+//
+// 	err := cmd.Run()
+//
+// 	if err != nil {
+// 		return gserrors.Newf(err, buff.String())
+// 	}
+// 	return nil
+// }

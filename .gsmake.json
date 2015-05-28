@@ -2,26 +2,20 @@
     "name":"github.com/gsmake/gsmake",
 
     "import" : [
-        {"name" : "github.com/gsdocker/gsos","scope":"task|runtimes"},
-        {"name" : "github.com/gsdocker/gserrors","scope":"task|runtimes"},
-        {"name" : "github.com/gsdocker/gsconfig","scope":"task|runtimes"},
-        {"name" : "github.com/gsdocker/gslogger","scope":"task|runtimes"}
+        {"name" : "github.com/gsdocker/gsos"},
+        {"name" : "github.com/gsdocker/gserrors"},
+        {"name" : "github.com/gsdocker/gsconfig"},
+        {"name" : "github.com/gsdocker/gslogger"}
     ],
 
     "task" : {
 
         "setup" : {
-            "description":"install current package"
+            "description":"setup gsmake"
         },
 
         "list" : {
             "description":"list tasks"
         }
-    },
-
-    "properties" : {
-        "goinstall":[
-            "cmd/gsmake"
-        ]
     }
 }

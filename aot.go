@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"go/format"
 
@@ -32,6 +33,8 @@ type AOTCompiler struct {
 // Compile .
 func Compile(rootpath string, target string) (*AOTCompiler, error) {
 
+	log := gslogger.Get("compile")
+
 	loader, err := load(rootpath, target)
 
 	if err != nil {
@@ -54,7 +57,7 @@ func Compile(rootpath string, target string) (*AOTCompiler, error) {
 	}
 
 	compiler := &AOTCompiler{
-		Log:      gslogger.Get("gsmake"),
+		Log:      log,
 		tpl:      tpl,
 		rootfs:   loader.rootfs,
 		target:   loader.targetpath,
@@ -64,7 +67,19 @@ func Compile(rootpath string, target string) (*AOTCompiler, error) {
 
 	compiler.binarypath = filepath.Join(compiler.rootfs.TempDir("task"), "runner"+gsos.ExeSuffix)
 
-	return compiler, compiler.compile()
+	log.I("compile runner ... ")
+
+	start := time.Now()
+
+	err = compiler.compile()
+
+	log.I("compile runner -- success %s", time.Now().Sub(start))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return compiler, nil
 }
 
 func (compiler *AOTCompiler) compile() error {

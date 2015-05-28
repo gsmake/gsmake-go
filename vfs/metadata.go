@@ -3,6 +3,7 @@ package vfs
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"path"
 	"path/filepath"
@@ -136,7 +137,7 @@ func (db *Metadata) mountindexer() string {
 }
 
 func (db *Metadata) mountkey(target *Entry) string {
-	return filepath.Join(target.Query().Get("domain"), target.Host, target.Path)
+	return fmt.Sprintf("%s/%s%s", target.Query().Get("domain"), target.Host, target.Path)
 }
 
 // Mount .

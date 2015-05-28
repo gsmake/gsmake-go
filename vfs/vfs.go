@@ -155,7 +155,7 @@ func createRootFS(rootpath string, username string) (*VFS, error) {
 	fullpath, err := filepath.Abs(rootpath)
 
 	if err != nil {
-		return nil, err
+		return nil, gserrors.Newf(err, "get abs path error\n\t%s", rootpath)
 	}
 
 	db, err := newMetadata(fullpath, username)

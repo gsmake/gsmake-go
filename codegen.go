@@ -10,12 +10,12 @@ import "flag"
 import "strings"
 import "github.com/gsdocker/gslogger"
 import "github.com/gsmake/gsmake"
-var cacheflag = flag.Bool("nocache", false, "using caching packages")
+
 var verbflag = flag.Bool("v", false, "print more debug information")
-var context = gsmake.NewRunner("{{.TargetPath}}","{{.RootPath}}")
+var context = gsmake.NewRunner("{{ospath .RootPath}}","{{ospath .TargetPath}}")
 func main(){
     flag.Parse()
-    gslogger.Console("[$tag] $content", "")
+    gslogger.Console("[$tag] ($file:$lines) -- $content", "")
     if flag.NArg() < 1 {
         fmt.Println("expect task name")
         os.Exit(1)
@@ -23,7 +23,7 @@ func main(){
     if !*verbflag {
 		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
 	}
-    if err := context.Start(*cacheflag); err != nil {
+    if err := context.Start(); err != nil {
         context.E("%s",err)
         gslogger.Join()
         os.Exit(1)
