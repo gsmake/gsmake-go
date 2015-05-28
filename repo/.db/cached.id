@@ -1,0 +1,8 @@
+{
+	"git://github.com//go-fsnotify/fsnotify": "2015-05-28T16:56:34.873141186+08:00",
+	"git://github.com//gsdocker/gsconfig": "2015-05-28T16:55:16.806195795+08:00",
+	"git://github.com//gsdocker/gserrors": "2015-05-28T16:52:09.47930434+08:00",
+	"git://github.com//gsdocker/gslogger": "2015-05-28T16:53:26.931862085+08:00",
+	"git://github.com//gsdocker/gsos": "2015-05-28T16:50:51.652787088+08:00",
+	"git://github.com//gsmake/gsmake": "2015-05-28T17:21:40.662181572+08:00"
+}

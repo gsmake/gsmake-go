@@ -1,5 +1,5 @@
 {
-    "name":"github.com/gsdocker/gsmake",
+    "name":"github.com/gsmake/gsmake",
 
     "import" : [
         {"name" : "github.com/gsdocker/gsos","scope":"task|runtimes"},
@@ -10,39 +10,13 @@
 
     "task" : {
 
-        "resources" :{
-            "description":"prepare package's resources"
-        },
-
-        "compile" : {
-            "prev" : "resources",
-            "description":"compile package source codes"
-        },
-
-        "test" : {
-            "prev" : "compile",
-            "description":"run package's test suite"
-        },
-
         "setup" : {
-            "prev" : "test",
             "description":"install current package"
         },
 
-        "cache":{
-            "prev":"test",
-            "description":"link develop package into gsmake cache space"
-        },
-
-        "archetype" : {"description":"using archetype package to start a new package develop"},
-
-        "list" : {"description":"list loade task"},
-
-        "update" : {"description":"update cached package by scm"},
-
-        "atom" : {"description":"start atom"},
-
-        "gotest" : {"prev":"resources","description":"invoke go test command"}
+        "list" : {
+            "description":"list tasks"
+        }
     },
 
     "properties" : {

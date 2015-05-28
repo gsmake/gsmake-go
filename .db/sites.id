@@ -1,0 +1,17 @@
+{
+	"bitbucket.org": {
+		"SCM": "git",
+		"URL": "https://${root}.git",
+		"Pattern": "^(?P\u003croot\u003ebitbucket\\.org/[A-Za-z0-9_.\\-]+/[A-Za-z0-9_.\\-]+)(/[A-Za-z0-9_.\\-]+)*$"
+	},
+	"github.com": {
+		"SCM": "git",
+		"URL": "https://${root}.git",
+		"Pattern": "^(?P\u003croot\u003egithub\\.com/[A-Za-z0-9_.\\-]+/[A-Za-z0-9_.\\-]+)(/[A-Za-z0-9_.\\-]+)*$"
+	},
+	"gopkg.in": {
+		"SCM": "git",
+		"URL": "https://${root}",
+		"Pattern": "^(?P\u003croot\u003egopkg\\.in/[A-Za-z0-9_.\\-])$"
+	}
+}

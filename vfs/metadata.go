@@ -1,8 +1,8 @@
 package vfs
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path"
 	"path/filepath"
@@ -12,6 +12,19 @@ import (
 	"github.com/gsdocker/gsos/uuid"
 	"github.com/gsmake/gsmake/fs"
 )
+
+// Site .
+type Site struct {
+	SCM     string
+	URL     string
+	Pattern string
+}
+
+// MountIndexer .
+type MountIndexer struct {
+	Src    string
+	Target string
+}
 
 // Metadata .
 type Metadata struct {
@@ -40,20 +53,58 @@ func newMetadata(rootpath string, username string) (*Metadata, error) {
 
 		var userspaces map[string]string
 
-		if err := db.ReadIndexer("userspace", &userspaces); err != nil {
+		if err := db.readIndexer("userspace", &userspaces); err != nil {
 			return err
 		}
 
 		if us, ok := userspaces[username]; ok {
-			db.userspace = us
+			db.userspace = filepath.Join(rootpath, "userspace", us)
 			return nil
 		}
 
-		db.userspace = filepath.Join(rootpath, "userspace", uuid.New())
+		us := uuid.New()
 
-		userspaces[username] = db.userspace
+		db.userspace = filepath.Join(rootpath, "userspace", us)
 
-		if err := db.WriteIndexer("userspace", userspaces); err != nil {
+		userspaces[username] = us
+
+		if err := db.writeIndexer("userspace", userspaces); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	err = fs.FLock(db.flocker, func() error {
+
+		var sites map[string]Site
+
+		if err := db.readIndexer("sites", &sites); err != nil {
+			return err
+		}
+
+		if len(sites) == 0 {
+			sites = map[string]Site{
+				"github.com": {
+					SCM:     "git",
+					URL:     "https://${root}.git",
+					Pattern: `^(?P<root>github\.com/[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+)(/[A-Za-z0-9_.\-]+)*$`,
+				},
+				"gopkg.in": {
+					SCM:     "git",
+					URL:     "https://${root}",
+					Pattern: `^(?P<root>gopkg\.in/[A-Za-z0-9_.\-])$`,
+				},
+
+				"bitbucket.org": {
+					SCM:     "git",
+					URL:     "https://${root}.git",
+					Pattern: `^(?P<root>bitbucket\.org/[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+)(/[A-Za-z0-9_.\-]+)*$`,
+				},
+			}
+		}
+
+		if err := db.writeIndexer("sites", sites); err != nil {
 			return err
 		}
 
@@ -63,31 +114,51 @@ func newMetadata(rootpath string, username string) (*Metadata, error) {
 	return db, err
 }
 
-// CacheRoot .
-func (db *Metadata) CacheRoot() string {
-	return filepath.Join(db.rootpath, "cache")
-}
+func (db *Metadata) site(host string) (site Site, ok bool) {
+	fs.FLock(db.flocker, func() error {
 
-// Mount .
-func (db *Metadata) Mount(src, target *Entry) error {
+		var sites map[string]Site
 
-	gserrors.Require(target.Scheme == FSGSMake, "target must be rootfs node")
-
-	indexername := path.Join(db.userspace, "mount")
-
-	key := fmt.Sprintf("%s/%s", target.Host, target.Path)
-
-	return db.Tx(func() error {
-
-		var indexer map[string]string
-
-		if err := db.ReadIndexer(indexername, &indexer); err != nil {
+		if err := db.readIndexer("sites", &sites); err != nil {
 			return err
 		}
 
-		indexer[key] = src.String()
+		site, ok = sites[host]
 
-		if err := db.WriteIndexer(indexername, indexer); err != nil {
+		return nil
+	})
+
+	return
+}
+
+func (db *Metadata) mountindexer() string {
+	return path.Join(filepath.Base(db.userspace), "mount")
+}
+
+func (db *Metadata) mountkey(target *Entry) string {
+	return filepath.Join(target.Query().Get("domain"), target.Host, target.Path)
+}
+
+// Mount .
+func (db *Metadata) mount(src, target *Entry) error {
+
+	gserrors.Require(target.Scheme == FSGSMake, "target must be rootfs node")
+
+	indexername := db.mountindexer()
+
+	key := db.mountkey(target)
+
+	return db.tx(func() error {
+
+		var indexer map[string]MountIndexer
+
+		if err := db.readIndexer(indexername, &indexer); err != nil {
+			return err
+		}
+
+		indexer[key] = MountIndexer{src.String(), target.String()}
+
+		if err := db.writeIndexer(indexername, indexer); err != nil {
 			return err
 		}
 
@@ -96,25 +167,25 @@ func (db *Metadata) Mount(src, target *Entry) error {
 }
 
 // Dismount .
-func (db *Metadata) Dismount(src, target *Entry) error {
+func (db *Metadata) dismount(src, target *Entry) error {
 
 	gserrors.Require(target.Scheme == FSGSMake, "target must be rootfs node")
 
-	indexername := path.Join(db.userspace, "mount")
+	indexername := db.mountindexer()
 
-	key := fmt.Sprintf("%s/%s", target.Host, target.Path)
+	key := db.mountkey(target)
 
-	return db.Tx(func() error {
+	return db.tx(func() error {
 
-		var indexer map[string]string
+		var indexer map[string]MountIndexer
 
-		if err := db.ReadIndexer(indexername, &indexer); err != nil {
+		if err := db.readIndexer(indexername, &indexer); err != nil {
 			return err
 		}
 
 		delete(indexer, key)
 
-		if err := db.WriteIndexer(indexername, indexer); err != nil {
+		if err := db.writeIndexer(indexername, indexer); err != nil {
 			return err
 		}
 
@@ -122,26 +193,28 @@ func (db *Metadata) Dismount(src, target *Entry) error {
 	})
 }
 
-func (db *Metadata) queryMount(rootfs *rootfService, target *Entry) (entry *Entry, err error) {
+func (db *Metadata) queryMount(rootfs *VFS, target *Entry) (entry *Entry, err error) {
 
 	gserrors.Require(target.Scheme == FSGSMake, "target must be rootfs node")
 
-	indexername := path.Join(db.userspace, "mount")
+	indexername := db.mountindexer()
 
-	key := fmt.Sprintf("%s/%s", target.Host, target.Path)
+	key := db.mountkey(target)
 
-	err = db.Tx(func() error {
+	db.tx(func() error {
 
-		var indexer map[string]string
+		var indexer map[string]MountIndexer
 
-		if err := db.ReadIndexer(indexername, &indexer); err != nil {
-			return err
-		}
-
-		if src, ok := indexer[key]; ok {
-			entry, err = rootfs.parseurl(src)
+		if err = db.readIndexer(indexername, &indexer); err != nil {
 			return nil
 		}
+
+		if v, ok := indexer[key]; ok {
+			entry, err = rootfs.parseurl(v.Src)
+			return nil
+		}
+
+		err = gserrors.Newf(ErrNotFound, "mount info not found")
 
 		return nil
 	})
@@ -149,13 +222,13 @@ func (db *Metadata) queryMount(rootfs *rootfService, target *Entry) (entry *Entr
 	return
 }
 
-// Tx start a transaction
-func (db *Metadata) Tx(f func() error) error {
+// tx start a transaction
+func (db *Metadata) tx(f func() error) error {
 	return fs.FLock(db.flocker, f)
 }
 
-// ReadIndexer .
-func (db *Metadata) ReadIndexer(name string, indexer interface{}) error {
+// readIndexer .
+func (db *Metadata) readIndexer(name string, indexer interface{}) error {
 	indexerfile := filepath.Join(db.dbpath, name+".id")
 
 	if !fs.Exists(indexerfile) {
@@ -184,8 +257,8 @@ func (db *Metadata) ReadIndexer(name string, indexer interface{}) error {
 	return nil
 }
 
-// WriteIndexer .
-func (db *Metadata) WriteIndexer(name string, indexer interface{}) error {
+// writeIndexer .
+func (db *Metadata) writeIndexer(name string, indexer interface{}) error {
 
 	indexerfile := filepath.Join(db.dbpath, name+".id")
 
@@ -195,11 +268,19 @@ func (db *Metadata) WriteIndexer(name string, indexer interface{}) error {
 		return gserrors.Newf(err, "marshal %s indexer error", name)
 	}
 
-	err = ioutil.WriteFile(indexerfile, content, 0755)
+	var fmtjson bytes.Buffer
+
+	json.Indent(&fmtjson, content, "", "\t")
+
+	err = ioutil.WriteFile(indexerfile, fmtjson.Bytes(), 0755)
 
 	if err != nil {
 		return gserrors.Newf(err, "write %s indexer error", name)
 	}
 
 	return nil
+}
+
+func (db *Metadata) cacheRoot(src *Entry) string {
+	return filepath.Join(db.rootpath, "cache", src.Scheme, src.Host, src.Path)
 }
