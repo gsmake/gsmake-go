@@ -160,7 +160,7 @@ func (loader *Loader) load() error {
 
 		pkg, err := loader.loadpackage(Import{
 			Name:    "github.com/gsmake/gsmake",
-			Version: "v2.0",
+			Version: "release/v2.0",
 			SCM:     "git",
 			Domain:  "task",
 		})
