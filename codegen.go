@@ -15,7 +15,7 @@ var verbflag = flag.Bool("v", false, "print more debug information")
 var context = gsmake.NewRunner("{{ospath .RootPath}}","{{ospath .TargetPath}}")
 func main(){
     flag.Parse()
-    gslogger.Console("[$tag] ($file:$lines) -- $content", "")
+    gslogger.Console("[$tag] $content", "")
     if flag.NArg() < 1 {
         fmt.Println("expect task name")
         os.Exit(1)
@@ -49,6 +49,7 @@ func init(){
         F : task.{{taskname $key}},
         Prev : "{{$value.Prev}}",
         Project : "{{$value.Package}}",
+        Scope : "{{$value.Domain}}",
     })
     {{end}}
 }

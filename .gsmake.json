@@ -11,11 +11,16 @@
     "task" : {
 
         "setup" : {
+            "scope":"bootstrap",
             "description":"setup gsmake"
         },
 
         "list" : {
             "description":"list tasks"
+        },
+
+        "atom" : {
+            "description":"config golang atom environment,and start it."
         }
     }
 }

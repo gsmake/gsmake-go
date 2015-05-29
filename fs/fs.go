@@ -1,6 +1,9 @@
 package fs
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+)
 
 // Exists check if file node exist
 func Exists(path string) bool {
@@ -34,4 +37,11 @@ func SameFile(f1, f2 string) bool {
 	}
 
 	return os.SameFile(s1, s2)
+}
+
+// Current get current directory
+func Current() string {
+	current, _ := filepath.Abs("./")
+
+	return current
 }

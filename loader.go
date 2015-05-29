@@ -59,25 +59,26 @@ type Import struct {
 type Task struct {
 	Prev        string // depend task name
 	Description string // task description
-	Package     string `json:"-"` // package name which defined this task
+	Package     string `json:"-"`     // package name which defined this task
+	Domain      string `json:"scope"` // scope belongs to
 }
 
 // Package describe a gsmake package object
 type Package struct {
-	Name       string          // package name string
-	Import     []Import        // package import field
-	Task       map[string]Task // package defined task
-	Properties Properties      // properties
-	vfspath    string          // vfs path
+	Name       string           // package name string
+	Import     []Import         // package import field
+	Task       map[string]*Task // package defined task
+	Properties Properties       // properties
 }
 
 // Loader package loader
 type Loader struct {
-	gslogger.Log                     // mixin Log APIs
-	packages     map[string]*Package // loaded packages
-	checkerOfDCG []*Package          // DCG check stack
-	rootfs       vfs.RootFS          // vfs object
-	targetpath   string              // the loading package path
+	gslogger.Log                                // mixin Log APIs
+	packages     map[string]map[string]*Package // loaded packages
+	checkerOfDCG []*Package                     // DCG check stack
+	rootfs       vfs.RootFS                     // vfs object
+	targetpath   string                         // the loading package path
+	domainlist   []string                       // register domain list
 }
 
 func load(rootpath string, target string) (*Loader, error) {
@@ -97,8 +98,9 @@ func load(rootpath string, target string) (*Loader, error) {
 	loader := &Loader{
 		Log:        gslogger.Get("loader"),
 		targetpath: fullpath,
-		packages:   make(map[string]*Package),
+		packages:   make(map[string]map[string]*Package),
 		rootfs:     rootfs,
+		domainlist: []string{"task"},
 	}
 
 	loader.I("load package ...")
@@ -114,6 +116,30 @@ func load(rootpath string, target string) (*Loader, error) {
 	}
 
 	return loader, nil
+}
+
+func (loader *Loader) addpackage(domain string, pkg *Package) {
+	packages, ok := loader.packages[domain]
+
+	if !ok {
+		packages = make(map[string]*Package)
+
+		loader.packages[domain] = packages
+	}
+
+	packages[pkg.Name] = pkg
+}
+
+func (loader *Loader) querypackage(domain string, name string) (*Package, bool) {
+	if packages, ok := loader.packages[domain]; ok {
+
+		if pkg, ok := packages[name]; ok {
+			return pkg, true
+		}
+
+	}
+
+	return nil, false
 }
 
 func (loader *Loader) load() error {
@@ -141,22 +167,21 @@ func (loader *Loader) load() error {
 		return err
 	}
 
-	target := fmt.Sprintf("gsmake://%s?domain=task", pkg.Name)
+	loader.I("register domains [%v]", strings.Join(loader.domainlist, ","))
 
-	src := fmt.Sprintf("file://%s?version=current", loader.targetpath)
+	for _, domain := range loader.domainlist {
 
-	pkg.vfspath = target
+		_, _, err := loader.tryMount(domain, pkg.Name, loader.targetpath, "current", "file")
 
-	loader.packages[pkg.vfspath] = pkg
-
-	if !loader.rootfs.Mounted(src, target) {
-		if err := loader.rootfs.Mount(src, target); err != nil {
+		if err != nil {
 			return err
 		}
+
+		loader.addpackage(domain, pkg)
 	}
 
 	// try load gsmake
-	if _, ok := loader.packages["gsmake://github.com/gsmake/gsmake?domain=task"]; !ok {
+	if _, ok := loader.querypackage("task", "github.com/gsmake/gsmake"); !ok {
 
 		pkg, err := loader.loadpackage(Import{
 			Name:    "github.com/gsmake/gsmake",
@@ -169,26 +194,23 @@ func (loader *Loader) load() error {
 			return gserrors.Newf(err, "load package github.com/gsmake/gsmake error")
 		}
 
-		loader.packages[pkg.vfspath] = pkg
+		loader.addpackage("task", pkg)
 	}
 
 	// dismount not loaded packages
 
-	entries, err := loader.rootfs.List()
+	err = loader.rootfs.List(func(src, target *vfs.Entry) bool {
+
+		if _, ok := loader.querypackage(target.Domain(), target.Name()); !ok {
+			loader.I("dismount :%s", target)
+			loader.rootfs.Dismount(target.String())
+		}
+
+		return true
+	})
 
 	if err != nil {
-		return gserrors.Newf(err, "list vfs nodes error")
-	}
-
-	for k := range loader.packages {
-		loader.D("loaded package :%s", k)
-	}
-
-	for target := range entries {
-		if _, ok := loader.packages[target]; !ok {
-			loader.I("dismount :%s", target)
-			loader.rootfs.Dismount(target)
-		}
+		return gserrors.Newf(err, "dismount unreference packages error")
 	}
 
 	return nil
@@ -211,16 +233,26 @@ func (loader *Loader) checkDCG(name string) error {
 	return nil
 }
 
-func (loader *Loader) loadpackage(i Import) (*Package, error) {
+func (loader *Loader) tryMount(domain, name, srcpath, version, scm string) (string, string, error) {
+	target := fmt.Sprintf("gsmake://%s?domain=%s", name, domain)
 
-	target := fmt.Sprintf("gsmake://%s?domain=%s", i.Name, i.Domain)
-
-	src := fmt.Sprintf("%s://%s?version=%s", i.SCM, i.Name, i.Version)
+	src := fmt.Sprintf("%s://%s?version=%s", scm, srcpath, version)
 
 	if !loader.rootfs.Mounted(src, target) {
 		if err := loader.rootfs.Mount(src, target); err != nil {
-			return nil, err
+			return src, target, err
 		}
+	}
+
+	return src, target, nil
+}
+
+func (loader *Loader) loadpackage(i Import) (*Package, error) {
+
+	_, target, err := loader.tryMount(i.Domain, i.Name, i.Name, i.Version, i.SCM)
+
+	if err != nil {
+		return nil, err
 	}
 
 	_, entry, err := loader.rootfs.Open(target)
@@ -229,8 +261,12 @@ func (loader *Loader) loadpackage(i Import) (*Package, error) {
 		return nil, err
 	}
 
-	if pkg, ok := loader.packages[target]; ok {
-		return pkg, nil
+	if packages, ok := loader.packages[i.Domain]; ok {
+
+		if pkg, ok := packages[i.Name]; ok {
+			return pkg, nil
+		}
+
 	}
 
 	// DCG check
@@ -240,9 +276,37 @@ func (loader *Loader) loadpackage(i Import) (*Package, error) {
 
 	importpkg, err := loader.loadpackagev2(i.Domain, i.Name, entry.Mapping)
 
-	importpkg.vfspath = target
-
 	return importpkg, err
+}
+
+func (loader *Loader) parseDomain(src string) []string {
+	domains := strings.Split(src, "|")
+
+	if len(domains) == 1 && domains[0] == "" {
+		domains = []string{"task"}
+	}
+
+	var add []string
+
+	for _, domain := range domains {
+
+		var duplicate bool
+
+		for _, d2 := range loader.domainlist {
+			if d2 == domain {
+				duplicate = true
+				break
+			}
+		}
+
+		if !duplicate {
+			add = append(add, domain)
+		}
+	}
+
+	loader.domainlist = append(loader.domainlist, add...)
+
+	return domains
 }
 
 func (loader *Loader) loadpackagev2(domain, name, fullpath string) (*Package, error) {
@@ -285,11 +349,7 @@ func (loader *Loader) loadpackagev2(domain, name, fullpath string) (*Package, er
 			v.SCM = loader.rootfs.Protocol(u.Host)
 		}
 
-		domains := strings.Split(v.Domain, "|")
-
-		if len(domains) == 1 && domains[0] == "" {
-			domains = []string{"task"}
-		}
+		domains := loader.parseDomain(v.Domain)
 
 		for _, d := range domains {
 
@@ -306,11 +366,15 @@ func (loader *Loader) loadpackagev2(domain, name, fullpath string) (*Package, er
 				return nil, err
 			}
 
-			loader.packages[importpkg.vfspath] = importpkg
+			loader.addpackage(d, importpkg)
 		}
 	}
 
 	loader.checkerOfDCG = loader.checkerOfDCG[:len(loader.checkerOfDCG)-1]
+
+	for _, task := range pkg.Task {
+		task.Package = name
+	}
 
 	return pkg, nil
 }

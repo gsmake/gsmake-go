@@ -52,7 +52,7 @@ func main() {
 
 	currentdir := gsos.CurrentDir()
 
-	gslogger.Console("[$tag] ($file:$lines) -- $content", "")
+	gslogger.Console("[$tag] $content", "")
 
 	log := gslogger.Get("gsmake")
 

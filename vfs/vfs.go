@@ -82,6 +82,16 @@ func (entry *Entry) String() string {
 	return entry.URL.String()
 }
 
+// Domain .
+func (entry *Entry) Domain() string {
+	return entry.Query().Get("domain")
+}
+
+// Name .
+func (entry *Entry) Name() string {
+	return fmt.Sprintf("%s%s", entry.Host, entry.Path)
+}
+
 // RootFS the gsmake vfs rootfs object
 type RootFS interface {
 	// Mixin Log APIs
@@ -93,9 +103,9 @@ type RootFS interface {
 	//Dismount dismount src fs from rootfs node
 	Dismount(target string) error
 	// List list all mounted nodes
-	List() (map[string]string, error)
-	// Open open vfs node
-	Open(target string) (*Entry, *Entry, error)
+	List(f func(src *Entry, target *Entry) bool) error
+	// Open open vfs node, the return values are src entry and target entry
+	Open(url string) (src *Entry, target *Entry, err error)
 	// Update update a package
 	Update(src string, nocache bool) error
 	// Clear clear userspace
@@ -108,6 +118,8 @@ type RootFS interface {
 	TempDir(domain string) string
 	// DomainDir domain root dir
 	DomainDir(domain string) string
+	// Redirect set redirect flag
+	Redirect(from, to string, enable bool) error
 }
 
 //UserFS .
@@ -274,6 +286,10 @@ func (rootfs *VFS) parseurl(src string) (*Entry, error) {
 
 // Mount implement RootFS interface
 func (rootfs *VFS) Mount(src, target string) error {
+
+	if to, ok := rootfs.meta.queryredirect(src); ok {
+		src = to
+	}
 
 	if err := rootfs.Dismount(target); err != nil {
 		return err
@@ -454,28 +470,44 @@ func (rootfs *VFS) Open(target string) (*Entry, *Entry, error) {
 }
 
 // List implement rootfs
-func (rootfs *VFS) List() (entries map[string]string, err error) {
+func (rootfs *VFS) List(f func(src *Entry, target *Entry) bool) error {
 
-	rootfs.meta.tx(func() error {
+	var indexer map[string]MountIndexer
+
+	err := rootfs.meta.tx(func() error {
 
 		indexername := rootfs.meta.mountindexer()
 
-		var indexer map[string]MountIndexer
-
-		if err = rootfs.meta.readIndexer(indexername, &indexer); err != nil {
-			return nil
-		}
-
-		entries = make(map[string]string)
-
-		for _, v := range indexer {
-			entries[v.Target] = v.Src
+		if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
+			return err
 		}
 
 		return nil
 	})
 
-	return
+	if err != nil {
+		return err
+	}
+
+	for _, v := range indexer {
+		src, err := rootfs.parseurl(v.Src)
+
+		if err != nil {
+			return err
+		}
+
+		target, err := rootfs.parseurl(v.Target)
+
+		if err != nil {
+			return err
+		}
+
+		if !f(src, target) {
+			return nil
+		}
+	}
+
+	return nil
 }
 
 // Protocol implement rootfs
@@ -518,4 +550,30 @@ func (rootfs *VFS) TempDir(domain string) string {
 // DomainDir .
 func (rootfs *VFS) DomainDir(domain string) string {
 	return filepath.Join(rootfs.userspace, domain)
+}
+
+// Redirect implement rootfs
+func (rootfs *VFS) Redirect(from, to string, enable bool) error {
+
+	fromE, err := rootfs.parseurl(from)
+
+	if err != nil {
+		return err
+	}
+
+	if fromE.Scheme == FSGSMake {
+		return gserrors.Newf(ErrURL, "redirect url can't be gsmake://...\n\targ:%s", from)
+	}
+
+	toE, err := rootfs.parseurl(to)
+
+	if err != nil {
+		return err
+	}
+
+	if toE.Scheme == FSGSMake {
+		return gserrors.Newf(ErrURL, "redirect url can't be gsmake://...\n\targ:%s", to)
+	}
+
+	return rootfs.meta.redirect(from, to, enable)
 }

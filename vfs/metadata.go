@@ -115,6 +115,52 @@ func newMetadata(rootpath string, username string) (*Metadata, error) {
 	return db, err
 }
 
+func (db *Metadata) queryredirect(from string) (to string, ok bool) {
+
+	fs.FLock(db.flocker, func() error {
+		var mapping map[string]string
+
+		if err := db.readIndexer("redirect", &mapping); err != nil {
+			ok = false
+
+			return nil
+		}
+
+		to, ok = mapping[from]
+
+		return nil
+
+	})
+
+	return
+}
+
+func (db *Metadata) redirect(from, to string, enable bool) error {
+
+	return fs.FLock(db.flocker, func() error {
+
+		var mapping map[string]string
+
+		if err := db.readIndexer("redirect", &mapping); err != nil {
+			return err
+		}
+
+		if enable {
+			mapping[from] = to
+		} else {
+			if old, ok := mapping[from]; ok && old == to {
+				delete(mapping, from)
+			}
+		}
+
+		if err := db.writeIndexer("redirect", mapping); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func (db *Metadata) site(host string) (site Site, ok bool) {
 	fs.FLock(db.flocker, func() error {
 

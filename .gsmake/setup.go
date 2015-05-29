@@ -13,7 +13,7 @@ import (
 // TaskSetup .
 func TaskSetup(runner *gsmake.Runner, args ...string) error {
 
-	if runner.Current() == "gsmake://github.com/gsmake/gsmake?domain=task" {
+	if runner.Name() == "github.com/gsmake/gsmake" {
 
 		if len(args) == 0 {
 			return gserrors.Newf(nil, "expect setup dir")
@@ -29,13 +29,13 @@ func TaskSetup(runner *gsmake.Runner, args ...string) error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		_, target, err := runner.RootFS().Open(runner.Current())
+		target, err := runner.Path("task", "github.com/gsmake/gsmake")
 
 		if err != nil {
 			return err
 		}
 
-		cmd.Dir = filepath.Join(target.Mapping, "cmd", "gsmake")
+		cmd.Dir = filepath.Join(target, "cmd", "gsmake")
 
 		return cmd.Run()
 	}

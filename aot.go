@@ -62,7 +62,7 @@ func Compile(rootpath string, target string) (*AOTCompiler, error) {
 		rootfs:   loader.rootfs,
 		target:   loader.targetpath,
 		rootpath: rootpath,
-		packages: loader.packages,
+		packages: loader.packages["task"],
 	}
 
 	compiler.binarypath = filepath.Join(compiler.rootfs.TempDir("task"), "runner"+gsos.ExeSuffix)

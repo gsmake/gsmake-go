@@ -9,6 +9,7 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+	"github.com/gsmake/gsmake/fs"
 	"github.com/gsmake/gsmake/vfs"
 )
 
@@ -24,6 +25,7 @@ type TaskCmd struct {
 	F           TaskF  // task function
 	Prev        string // prev task name
 	Project     string // project belongs to
+	Scope       string // scope belongs to
 }
 
 // TaskF task function
@@ -115,12 +117,47 @@ func (group *taskGroup) topoShort(context *Runner) ([]*taskGroup, error) {
 	return result, nil
 }
 
-func (group *taskGroup) invoke(runner *Runner, args ...string) error {
+func (group *taskGroup) invoke(runner *Runner, domain string, args ...string) error {
 
 	for _, task := range group.group {
+
+		if task.Scope != "" {
+
+			scopes := strings.Split(task.Scope, "|")
+
+			skip := true
+
+			for _, v := range scopes {
+				if v == domain {
+					skip = false
+					break
+				}
+			}
+
+			if skip {
+
+				runner.I(
+					"skip run task : \n\tpackage:     %s\n\tdescription: %s\n\tscope:       %s\n",
+					task.Name,
+					task.Description,
+					task.Scope,
+				)
+
+				continue
+			}
+		}
+
+		runner.I(
+			"run task ...\n\tpackage:     %s\n\tdescription: %s\n\tscope:       %s\n",
+			task.Name,
+			task.Description,
+			task.Scope,
+		)
+
 		if err := task.F(runner, args...); err != nil {
 			return err
 		}
+
 	}
 
 	return nil
@@ -136,6 +173,7 @@ type Runner struct {
 	rootpath     string                // gsmake root path
 	targetpath   string                // the processing root package path
 	currentpkg   *Package              // current handle package object
+	startdir     string                // runner start dir
 }
 
 // NewRunner create new task runner
@@ -146,19 +184,36 @@ func NewRunner(rootpath string, targetpath string) *Runner {
 		tasks:      make(map[string]*taskGroup),
 		rootpath:   rootpath,
 		targetpath: targetpath,
+		startdir:   fs.Current(),
 	}
 
 	return runner
 }
 
-// Current gsmake current handle pacakge
-func (runner *Runner) Current() string {
-	return fmt.Sprintf("gsmake://%s?domain=task", runner.currentpkg.Name)
+// Name get package name
+func (runner *Runner) Name() string {
+	return runner.currentpkg.Name
+}
+
+// Path get package's path
+func (runner *Runner) Path(domain, name string) (string, error) {
+	_, target, err := runner.rootfs.Open(fmt.Sprintf("gsmake://%s?domain=%s", name, domain))
+
+	if err != nil {
+		return "", err
+	}
+
+	return target.Mapping, nil
 }
 
 // RootFS get rootfs object
 func (runner *Runner) RootFS() vfs.RootFS {
 	return runner.rootfs
+}
+
+// StartDir get runner start dir
+func (runner *Runner) StartDir() string {
+	return runner.startdir
 }
 
 // Start .
@@ -184,6 +239,7 @@ func (runner *Runner) Start() error {
 
 // Task register task
 func (runner *Runner) Task(task *TaskCmd) {
+
 	group, ok := runner.tasks[task.Name]
 	if !ok {
 		group = &taskGroup{name: task.Name}
@@ -198,7 +254,27 @@ func (runner *Runner) PrintTask() {
 	var stream bytes.Buffer
 	stream.WriteString("task list:\n")
 	for name, task := range runner.tasks {
-		stream.WriteString(fmt.Sprintf("\t* %s%s;%s\n", name, strings.Repeat(" ", 20-len(name)), task.description))
+		stream.WriteString(fmt.Sprintf("\t* %s\n", name))
+
+		for i, child := range task.group {
+
+			scope := strings.ToUpper(child.Scope)
+
+			if scope == "" {
+				scope = "ALL"
+			}
+
+			stream.WriteString(
+				fmt.Sprintf(
+					"\t\t%d). package:     %s\n\t\t    description: %s\n \t\t    scope:       %s\n",
+					i+1,
+					child.Project,
+					child.Description,
+					scope,
+				),
+			)
+		}
+
 	}
 
 	runner.I("print tasks\n%s", stream.String())
@@ -213,6 +289,16 @@ func (runner *Runner) unmark() {
 // Run run task
 func (runner *Runner) Run(name string, args ...string) error {
 
+	domain := ""
+	tokens := strings.SplitN(name, ":", 2)
+
+	if len(tokens) == 2 {
+
+		name = tokens[1]
+
+		domain = tokens[0]
+	}
+
 	//DFS Topo sort
 
 	if group, ok := runner.tasks[name]; ok {
@@ -226,7 +312,7 @@ func (runner *Runner) Run(name string, args ...string) error {
 		}
 
 		for _, group := range result {
-			if err := group.invoke(runner, args...); err != nil {
+			if err := group.invoke(runner, domain, args...); err != nil {
 				return err
 			}
 		}
