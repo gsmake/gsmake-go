@@ -11,7 +11,7 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-	"github.com/gsmake/gsmake/fs"
+	"github.com/gsdocker/gsos/fs"
 )
 
 // errors
@@ -321,6 +321,8 @@ func (rootfs *VFS) Userspace() string {
 // Mount implement RootFS interface
 func (rootfs *VFS) Mount(src, target string) error {
 
+	rootfs.D("mount src : %s", src)
+
 	if to, ok := rootfs.meta.queryredirect(src); ok {
 
 		rootfs.D("redirect \n\tfrom :%s\n\tto :%s", src, to)
@@ -427,7 +429,7 @@ func (rootfs *VFS) CacheRoot(src *Entry) (string, error) {
 
 		var indexer map[string][2]string
 
-		key := fmt.Sprintf("%s://%s/%s", src.Scheme, src.Host, src.Path)
+		key := fmt.Sprintf("%s://%s%s", src.Scheme, src.Host, src.Path)
 
 		if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
 			return err
@@ -548,6 +550,7 @@ func (rootfs *VFS) Protocol(host string) string {
 
 // Mounted implement rootfs
 func (rootfs *VFS) Mounted(src string, target string) bool {
+
 	targetE, _, err := rootfs.Open(target)
 
 	if err != nil {

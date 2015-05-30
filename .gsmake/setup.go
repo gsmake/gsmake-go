@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gsdocker/gserrors"
-	"github.com/gsdocker/gsos"
+	"github.com/gsdocker/gsos/fs"
 	"github.com/gsmake/gsmake"
 )
 
@@ -21,7 +21,7 @@ func TaskSetup(runner *gsmake.Runner, args ...string) error {
 
 		os.Setenv("GOPATH", runner.RootFS().DomainDir("task"))
 
-		obj := filepath.Join(args[0], "bin", "gsmake"+gsos.ExeSuffix)
+		obj := filepath.Join(args[0], "bin", "gsmake"+fs.ExeSuffix)
 
 		runner.I("install gsmake to :%s", obj)
 

@@ -10,8 +10,8 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+	"github.com/gsdocker/gsos/fs"
 	"github.com/gsdocker/gsos/uuid"
-	"github.com/gsmake/gsmake/fs"
 )
 
 // ErrGitFS .
@@ -73,7 +73,7 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 		rundir := os.TempDir()
 
-		gitFS.I("cache package: %s", filepath.Base(cachepath))
+		gitFS.I("cache package: %s:%s", filepath.Base(cachepath), version)
 
 		startime := time.Now()
 

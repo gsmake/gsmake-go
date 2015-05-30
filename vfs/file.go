@@ -7,7 +7,7 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-	"github.com/gsmake/gsmake/fs"
+	"github.com/gsdocker/gsos/fs"
 )
 
 // ErrFileFS .
