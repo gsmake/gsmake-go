@@ -1,7 +1,6 @@
 package tasks
 
 import (
-	"bytes"
 	"os"
 	"os/exec"
 
@@ -24,14 +23,16 @@ func TaskAtom(runner *gsmake.Runner, args ...string) error {
 
 	cmd := exec.Command("atom")
 
-	var buff bytes.Buffer
+	cmd.Stderr = os.Stderr
 
-	cmd.Stderr = &buff
+	cmd.Stdout = os.Stdout
+
+	cmd.Stdin = os.Stdin
 
 	cmd.Dir = runner.StartDir()
 
 	if err := cmd.Run(); err != nil {
-		return gserrors.Newf(err, buff.String())
+		return gserrors.Newf(err, "start atom error")
 	}
 
 	return nil

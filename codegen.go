@@ -15,7 +15,7 @@ var verbflag = flag.Bool("v", false, "print more debug information")
 var context = gsmake.NewRunner("{{ospath .RootPath}}","{{ospath .TargetPath}}")
 func main(){
     flag.Parse()
-    gslogger.Console("[$tag] $content", "")
+    gslogger.Console(gsmake.Logfmt, gsmake.LogTimefmt)
     if flag.NArg() < 1 {
         fmt.Println("expect task name")
         os.Exit(1)
@@ -28,7 +28,7 @@ func main(){
         gslogger.Join()
         os.Exit(1)
     }
-    context.I("exec task [%s] with args : %s",flag.Arg(0),strings.Join(flag.Args()[1:]," "))
+    context.D("exec task [%s] with args : %s",flag.Arg(0),strings.Join(flag.Args()[1:]," "))
     if err := context.Run(flag.Arg(0),flag.Args()[1:]...); err != nil {
         context.E("%s",err)
         gslogger.Join()

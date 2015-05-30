@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/gsdocker/gsos"
 	"github.com/gsdocker/gsos/uuid"
 	"github.com/gsmake/gsmake"
+	"github.com/gsmake/gsmake/vfs"
 )
 
 var helpmsg = `
@@ -44,31 +46,19 @@ var cacheflag = flag.Bool("nocache", false, "using caching packages")
 var verbflag = flag.Bool("v", false, "print more debug information")
 var rootflag = flag.String("root", "", "the gsmake's root path")
 
+var versionflag = flag.Bool("version", false, "print more debug information")
+
 func init() {
 	flag.Var(&importVars, "import", "import addition package")
 }
 
-func main() {
-
-	currentdir := gsos.CurrentDir()
-
-	gslogger.Console("[$tag] $content", "")
-
-	log := gslogger.Get("gsmake")
-
-	flag.Parse()
-
-	if !*verbflag {
-		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
-	}
+func readconfig(log gslogger.Log) (string, string) {
 
 	defer func() {
 		if e := recover(); e != nil {
 			log.E("%s", gserrors.Newf(e.(error), ""))
 			gslogger.Join()
 			os.Exit(1)
-		} else {
-			gslogger.Join()
 		}
 	}()
 
@@ -93,7 +83,9 @@ func main() {
 		}
 
 		packagedir = fullpath
+
 	} else {
+
 		dir := uuid.New()
 
 		packagedir = filepath.Join(os.TempDir(), dir)
@@ -103,10 +95,7 @@ func main() {
 		}
 
 		pkg := &gsmake.Package{
-			Name: "github.com/gsdocker/gsmake.tmp",
-			Import: []gsmake.Import{
-				{Name: "github.com/gsmake/gsmake"},
-			},
+			Name: gsmake.PacakgeAnonymous,
 		}
 
 		content, err := json.Marshal(pkg)
@@ -124,33 +113,69 @@ func main() {
 		}
 	}
 
-	log.D("package path :%s", packagedir)
-	log.D("gsmake root path :%s", homepath)
+	return homepath, packagedir
+}
 
-	var imports []gsmake.Import
+func main() {
 
-	for _, importvar := range importVars.imports {
-		token := strings.SplitN(importvar, ":", 2)
+	currentdir := gsos.CurrentDir()
 
-		version := "current"
+	gslogger.Console(gsmake.Logfmt, gsmake.LogTimefmt)
 
-		if len(token) == 2 {
-			version = token[1]
-		}
+	log := gslogger.Get("gsmake")
 
-		log.I("addition import : %s:%s", token[0], version)
+	flag.Parse()
 
-		imports = append(imports, gsmake.Import{Name: token[0], Version: version})
+	if *versionflag {
+		fmt.Printf("Copyright (c) 2015 gsmake version %s \n", gsmake.VersionGSMake)
+		return
+	}
+
+	if !*verbflag {
+		gslogger.NewFlags(gslogger.ASSERT | gslogger.ERROR | gslogger.WARN | gslogger.INFO)
+	}
+
+	rootpath, targetpath := readconfig(log)
+
+	rootfs, err := vfs.New(rootpath, targetpath)
+
+	if err != nil {
+		log.E("%s", err)
+		os.Exit(1)
+	}
+
+	if strings.HasPrefix(targetpath, os.TempDir()) {
+		defer func() {
+			rootfs.Clear()
+
+			if e := recover(); e != nil {
+				log.E("%s", e)
+				gslogger.Join()
+				os.Exit(1)
+			}
+
+			gslogger.Join()
+		}()
+	} else {
+		defer func() {
+			if e := recover(); e != nil {
+				log.E("%s", e)
+				gslogger.Join()
+				os.Exit(1)
+			}
+
+			gslogger.Join()
+		}()
 	}
 
 	log.I("build gsmake runner ...")
 
 	startime := time.Now()
 
-	compiler, err := gsmake.Compile(homepath, packagedir)
+	compiler, err := gsmake.Compile(rootfs)
 
 	if err != nil {
-		panic(err)
+		gserrors.Panic(err)
 	}
 
 	log.I("build gsmake runner -- success %v", time.Now().Sub(startime))
@@ -172,7 +197,7 @@ func main() {
 	startime = time.Now()
 
 	if err := compiler.Run(currentdir, args...); err != nil {
-		panic(err)
+		gserrors.Panic(err)
 	}
 
 	log.I("exec gsmake runner -- success %v", time.Now().Sub(startime))

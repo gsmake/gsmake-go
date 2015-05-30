@@ -20,19 +20,24 @@ import (
 
 // gsmake predeined environment variables
 const (
-	EnvHome = "GSMAKE_HOME"
+	EnvHome          = "GSMAKE_HOME"
+	VersionGSMake    = "release/v2.0"
+	PacakgeAnonymous = "github.com/gsmake/gsmake.anonymous"
+	Logfmt           = "[$tag] $content"
+	LogTimefmt       = ""
 )
 
 // Errors .
 var (
-	ErrLoad = errors.New("load package error")
+	ErrLoad     = errors.New("load package error")
+	ErrNotFound = errors.New("property not found")
 )
 
 // Properties .
 type Properties map[string]interface{}
 
 // Expand rewrites content to replace ${k} with properties[k] for each key k in match.
-func Expand(content string, properties Properties) string {
+func (properties Properties) Expand(content string) string {
 	for k, v := range properties {
 
 		if stringer, ok := v.(fmt.Stringer); ok {
@@ -44,6 +49,39 @@ func Expand(content string, properties Properties) string {
 
 	}
 	return content
+}
+
+// Query query property value
+func (properties Properties) Query(name string, val interface{}) error {
+	if property, ok := properties[name]; ok {
+		content, err := json.Marshal(property)
+
+		if err != nil {
+			return err
+		}
+
+		return json.Unmarshal(content, val)
+	}
+
+	return ErrNotFound
+}
+
+// NotFound property not found
+func NotFound(err error) bool {
+	for {
+		if gserror, ok := err.(gserrors.GSError); ok {
+			err = gserror.Origin()
+			continue
+		}
+
+		break
+	}
+
+	if err == ErrNotFound {
+		return true
+	}
+
+	return false
 }
 
 // Import the gsmake import instruction description
@@ -78,36 +116,22 @@ type Loader struct {
 	checkerOfDCG []*Package                     // DCG check stack
 	rootfs       vfs.RootFS                     // vfs object
 	targetpath   string                         // the loading package path
-	domainlist   []string                       // register domain list
 }
 
-func load(rootpath string, target string) (*Loader, error) {
-
-	fullpath, err := filepath.Abs(target)
-
-	if err != nil {
-		return nil, err
-	}
-
-	rootfs, err := vfs.New(rootpath, fullpath)
-
-	if err != nil {
-		return nil, err
-	}
+func load(rootfs vfs.RootFS) (*Loader, error) {
 
 	loader := &Loader{
 		Log:        gslogger.Get("loader"),
-		targetpath: fullpath,
+		targetpath: rootfs.TargetPath(),
 		packages:   make(map[string]map[string]*Package),
 		rootfs:     rootfs,
-		domainlist: []string{"task"},
 	}
 
 	loader.I("load package ...")
 
 	start := time.Now()
 
-	err = loader.load()
+	err := loader.load()
 
 	loader.I("load package -- success %s", time.Now().Sub(start))
 
@@ -167,9 +191,11 @@ func (loader *Loader) load() error {
 		return err
 	}
 
-	loader.I("register domains [%v]", strings.Join(loader.domainlist, ","))
+	var domains []string
 
-	for _, domain := range loader.domainlist {
+	for domain := range loader.packages {
+
+		domains = append(domains, domain)
 
 		_, _, err := loader.tryMount(domain, pkg.Name, loader.targetpath, "current", "file")
 
@@ -180,12 +206,14 @@ func (loader *Loader) load() error {
 		loader.addpackage(domain, pkg)
 	}
 
+	loader.D("loaded domain : [%s]", strings.Join(domains, ","))
+
 	// try load gsmake
 	if _, ok := loader.querypackage("task", "github.com/gsmake/gsmake"); !ok {
 
 		pkg, err := loader.loadpackage(Import{
 			Name:    "github.com/gsmake/gsmake",
-			Version: "release/v2.0",
+			Version: VersionGSMake,
 			SCM:     "git",
 			Domain:  "task",
 		})
@@ -283,28 +311,8 @@ func (loader *Loader) parseDomain(src string) []string {
 	domains := strings.Split(src, "|")
 
 	if len(domains) == 1 && domains[0] == "" {
-		domains = []string{"task"}
+		domains = []string{"task", "golang"}
 	}
-
-	var add []string
-
-	for _, domain := range domains {
-
-		var duplicate bool
-
-		for _, d2 := range loader.domainlist {
-			if d2 == domain {
-				duplicate = true
-				break
-			}
-		}
-
-		if !duplicate {
-			add = append(add, domain)
-		}
-	}
-
-	loader.domainlist = append(loader.domainlist, add...)
 
 	return domains
 }
@@ -374,6 +382,18 @@ func (loader *Loader) loadpackagev2(domain, name, fullpath string) (*Package, er
 
 	for _, task := range pkg.Task {
 		task.Package = name
+	}
+
+	// search scope declare
+
+	var scopes []string
+
+	if err := pkg.Properties.Query("gsmake.declare.scopes", &scopes); err == nil {
+		for _, scope := range scopes {
+			if _, ok := loader.packages[scope]; !ok {
+				loader.packages[scope] = make(map[string]*Package)
+			}
+		}
 	}
 
 	return pkg, nil

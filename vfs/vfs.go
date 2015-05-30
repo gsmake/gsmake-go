@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
@@ -17,6 +17,7 @@ import (
 // errors
 var (
 	ErrURL      = errors.New("error url")
+	ErrFS       = errors.New("unknown fs")
 	ErrNotFound = errors.New("vfs node not found")
 )
 
@@ -96,6 +97,12 @@ func (entry *Entry) Name() string {
 type RootFS interface {
 	// Mixin Log APIs
 	gslogger.Log
+	// RootPath .
+	RootPath() string
+	// TargetPath .
+	TargetPath() string
+	// Userspace .
+	Userspace() string
 	// Mounted check if src had mounted on to target
 	Mounted(src string, target string) bool
 	//Mount mount src fs on to rootfs node
@@ -108,6 +115,8 @@ type RootFS interface {
 	Open(url string) (src *Entry, target *Entry, err error)
 	// Update update a package
 	Update(src string, nocache bool) error
+	// UpdateAll update all userspace's packages
+	UpdateAll(nocache bool) error
 	// Clear clear userspace
 	Clear() error
 	// Get mount fs cache root
@@ -132,6 +141,8 @@ type UserFS interface {
 	Dismount(rootfs RootFS, src, target *Entry) error
 	// Update update a package
 	Update(rootfs RootFS, src *Entry, target *Entry, nocache bool) error
+	// UpdateCache .
+	UpdateCache(rootfs RootFS, cachepath string) error
 }
 
 // VFS vfs VFS
@@ -139,13 +150,14 @@ type VFS struct {
 	gslogger.Log                   // Mixin Log APIs
 	userspace    string            // userspace path
 	rootpath     string            // gsmake root path
+	targetpath   string            // targetpath
 	meta         *Metadata         // mixin metadb
 	userfs       map[string]UserFS // register userfs
 }
 
 // New create new vfs VFS
-func New(rootpath string, username string) (RootFS, error) {
-	rootfs, err := createRootFS(rootpath, username)
+func New(rootpath string, targetpath string) (RootFS, error) {
+	rootfs, err := createRootFS(rootpath, targetpath)
 
 	if err != nil {
 		return nil, err
@@ -159,10 +171,10 @@ func New(rootpath string, username string) (RootFS, error) {
 	return rootfs, nil
 }
 
-func createRootFS(rootpath string, username string) (*VFS, error) {
+func createRootFS(rootpath string, targetpath string) (*VFS, error) {
 	log := gslogger.Get("vfs")
 
-	log.I("init vfs ...")
+	log.D("init vfs ...")
 
 	fullpath, err := filepath.Abs(rootpath)
 
@@ -170,17 +182,24 @@ func createRootFS(rootpath string, username string) (*VFS, error) {
 		return nil, gserrors.Newf(err, "get abs path error\n\t%s", rootpath)
 	}
 
-	db, err := newMetadata(fullpath, username)
+	targetfullpath, err := filepath.Abs(targetpath)
+
+	if err != nil {
+		return nil, gserrors.Newf(err, "get abs path error\n\t%s", targetpath)
+	}
+
+	db, err := newMetadata(fullpath, targetfullpath)
 
 	if err != nil {
 		return nil, err
 	}
 
 	s := &VFS{
-		meta:      db,
-		Log:       log,
-		userspace: db.userspace,
-		rootpath:  fullpath,
+		meta:       db,
+		Log:        log,
+		userspace:  db.userspace,
+		rootpath:   fullpath,
+		targetpath: targetfullpath,
 	}
 
 	s.D("rootpath :%s", s.rootpath)
@@ -192,7 +211,7 @@ func createRootFS(rootpath string, username string) (*VFS, error) {
 		}
 	}
 
-	s.I("init vfs -- success")
+	s.D("init vfs -- success")
 
 	return s, nil
 }
@@ -284,10 +303,28 @@ func (rootfs *VFS) parseurl(src string) (*Entry, error) {
 	return entry, nil
 }
 
+// RootPath .
+func (rootfs *VFS) RootPath() string {
+	return rootfs.rootpath
+}
+
+// TargetPath .
+func (rootfs *VFS) TargetPath() string {
+	return rootfs.targetpath
+}
+
+// Userspace .
+func (rootfs *VFS) Userspace() string {
+	return rootfs.userspace
+}
+
 // Mount implement RootFS interface
 func (rootfs *VFS) Mount(src, target string) error {
 
 	if to, ok := rootfs.meta.queryredirect(src); ok {
+
+		rootfs.D("redirect \n\tfrom :%s\n\tto :%s", src, to)
+
 		src = to
 	}
 
@@ -382,11 +419,13 @@ func (rootfs *VFS) Update(target string, nocache bool) error {
 // CacheRoot implement RootFS interface
 func (rootfs *VFS) CacheRoot(src *Entry) (string, error) {
 
+	cacheroot := rootfs.meta.cacheRoot(src)
+
 	err := rootfs.meta.tx(func() error {
 
 		indexername := "cached"
 
-		var indexer map[string]time.Time
+		var indexer map[string][2]string
 
 		key := fmt.Sprintf("%s://%s/%s", src.Scheme, src.Host, src.Path)
 
@@ -395,7 +434,7 @@ func (rootfs *VFS) CacheRoot(src *Entry) (string, error) {
 		}
 
 		if _, ok := indexer[key]; !ok {
-			indexer[key] = time.Now()
+			indexer[key] = [2]string{src.userfs.String(), cacheroot}
 		}
 
 		if err := rootfs.meta.writeIndexer(indexername, indexer); err != nil {
@@ -405,50 +444,25 @@ func (rootfs *VFS) CacheRoot(src *Entry) (string, error) {
 		return nil
 	})
 
-	if err != nil {
-		return "", err
-	}
-
-	return rootfs.meta.cacheRoot(src), nil
+	return cacheroot, err
 }
 
 // Clear implement RootFS
 func (rootfs *VFS) Clear() error {
 
-	return rootfs.meta.tx(func() error {
+	err := rootfs.meta.clear()
 
-		indexername := rootfs.meta.mountindexer()
+	if err != nil {
+		return err
+	}
 
-		var indexer map[string]MountIndexer
+	err = fs.RemoveAll(rootfs.userspace)
 
-		if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
-			return err
-		}
+	if err != nil {
+		return gserrors.Newf(err, "remove userspace error")
+	}
 
-		for _, id := range indexer {
-
-			target, err := rootfs.parseurl(id.Target)
-
-			if err != nil {
-				return err
-			}
-
-			if fs.Exists(target.Mapping) {
-				if err := fs.RemoveAll(target.Mapping); err != nil {
-					return gserrors.Newf(err, "remove rootfs attached node error")
-				}
-			}
-		}
-
-		indexer = make(map[string]MountIndexer)
-
-		if err := rootfs.meta.writeIndexer(indexername, indexer); err != nil {
-			return err
-		}
-
-		return nil
-	})
-
+	return nil
 }
 
 // Open implement rootfs
@@ -470,11 +484,17 @@ func (rootfs *VFS) Open(target string) (*Entry, *Entry, error) {
 }
 
 // List implement rootfs
-func (rootfs *VFS) List(f func(src *Entry, target *Entry) bool) error {
+func (rootfs *VFS) List(f func(src *Entry, target *Entry) bool) (err error) {
+
+	defer func() {
+		if e := recover(); e != nil {
+			err = e.(error)
+		}
+	}()
 
 	var indexer map[string]MountIndexer
 
-	err := rootfs.meta.tx(func() error {
+	err = rootfs.meta.tx(func() error {
 
 		indexername := rootfs.meta.mountindexer()
 
@@ -490,24 +510,30 @@ func (rootfs *VFS) List(f func(src *Entry, target *Entry) bool) error {
 	}
 
 	for _, v := range indexer {
-		src, err := rootfs.parseurl(v.Src)
+
+		var (
+			src    *Entry
+			target *Entry
+		)
+
+		src, err = rootfs.parseurl(v.Src)
 
 		if err != nil {
 			return err
 		}
 
-		target, err := rootfs.parseurl(v.Target)
+		target, err = rootfs.parseurl(v.Target)
 
 		if err != nil {
 			return err
 		}
 
 		if !f(src, target) {
-			return nil
+			return
 		}
 	}
 
-	return nil
+	return
 }
 
 // Protocol implement rootfs
@@ -576,4 +602,60 @@ func (rootfs *VFS) Redirect(from, to string, enable bool) error {
 	}
 
 	return rootfs.meta.redirect(from, to, enable)
+}
+
+// UpdateAll implement rootfs
+func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
+
+	var indexer map[string][2]string
+
+	if nocache {
+
+		err := rootfs.meta.tx(func() error {
+
+			indexername := "cached"
+
+			if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			return err
+		}
+
+		for _, src := range indexer {
+			userfs, ok := rootfs.userfs[src[0]]
+
+			if !ok {
+				return gserrors.Newf(ErrFS, "unknown userfs :%s", src[0])
+			}
+
+			err := userfs.UpdateCache(rootfs, src[1])
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if strings.HasPrefix(rootfs.targetpath, os.TempDir()) {
+
+		rootfs.D("skip update userspace")
+
+		return
+	}
+
+	return rootfs.List(func(src, target *Entry) bool {
+
+		err = src.userfs.Update(rootfs, src, target, false)
+
+		if err != nil {
+			panic(err)
+		}
+
+		return true
+	})
 }

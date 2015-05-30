@@ -31,11 +31,11 @@ type AOTCompiler struct {
 }
 
 // Compile .
-func Compile(rootpath string, target string) (*AOTCompiler, error) {
+func Compile(rootfs vfs.RootFS) (*AOTCompiler, error) {
 
 	log := gslogger.Get("compile")
 
-	loader, err := load(rootpath, target)
+	loader, err := load(rootfs)
 
 	if err != nil {
 		return nil, err
@@ -59,9 +59,9 @@ func Compile(rootpath string, target string) (*AOTCompiler, error) {
 	compiler := &AOTCompiler{
 		Log:      log,
 		tpl:      tpl,
-		rootfs:   loader.rootfs,
-		target:   loader.targetpath,
-		rootpath: rootpath,
+		rootfs:   rootfs,
+		target:   rootfs.TargetPath(),
+		rootpath: rootfs.RootPath(),
 		packages: loader.packages["task"],
 	}
 

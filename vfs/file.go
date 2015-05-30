@@ -58,6 +58,11 @@ func (fileFS *FileFS) Mount(rootfs RootFS, src, target *Entry) error {
 	return nil
 }
 
+// UpdateCache implement UserFS
+func (fileFS *FileFS) UpdateCache(rootfs RootFS, cachepath string) error {
+	return nil
+}
+
 // Dismount implement UserFS
 func (fileFS *FileFS) Dismount(rootfs RootFS, src, target *Entry) error {
 	return nil

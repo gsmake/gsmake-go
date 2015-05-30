@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
@@ -26,6 +27,22 @@ type TaskCmd struct {
 	Prev        string // prev task name
 	Project     string // project belongs to
 	Scope       string // scope belongs to
+}
+
+func (cmd *TaskCmd) String() string {
+
+	scope := strings.ToUpper(cmd.Scope)
+
+	if scope == "" {
+		scope = "ALL"
+	}
+
+	return fmt.Sprintf(
+		"task details\n\tpackage:     %s\n\tdescription: %s\n\tscope:       %s\n",
+		cmd.Name,
+		cmd.Description,
+		scope,
+	)
 }
 
 // TaskF task function
@@ -121,9 +138,11 @@ func (group *taskGroup) invoke(runner *Runner, domain string, args ...string) er
 
 	for _, task := range group.group {
 
-		if task.Scope != "" {
+		scope := task.Scope
 
-			scopes := strings.Split(task.Scope, "|")
+		if scope != "" {
+
+			scopes := strings.Split(scope, "|")
 
 			skip := true
 
@@ -132,31 +151,32 @@ func (group *taskGroup) invoke(runner *Runner, domain string, args ...string) er
 					skip = false
 					break
 				}
+
+				if v == "all" {
+					skip = false
+					break
+				}
 			}
 
 			if skip {
 
-				runner.I(
-					"skip run task : \n\tpackage:     %s\n\tdescription: %s\n\tscope:       %s\n",
-					task.Name,
-					task.Description,
-					task.Scope,
-				)
+				runner.I("skip task\n%s", task)
 
 				continue
 			}
+		} else {
+			scope = "ALL"
 		}
 
-		runner.I(
-			"run task ...\n\tpackage:     %s\n\tdescription: %s\n\tscope:       %s\n",
-			task.Name,
-			task.Description,
-			task.Scope,
-		)
+		runner.I("exec task ...\n%s", task)
+
+		startime := time.Now()
 
 		if err := task.F(runner, args...); err != nil {
 			return err
 		}
+
+		runner.I("exec task -- success %s", time.Now().Sub(startime))
 
 	}
 
@@ -218,6 +238,7 @@ func (runner *Runner) StartDir() string {
 
 // Start .
 func (runner *Runner) Start() error {
+
 	rootfs, err := vfs.New(runner.rootpath, runner.targetpath)
 
 	if err != nil {
@@ -233,6 +254,8 @@ func (runner *Runner) Start() error {
 	if err != nil {
 		return err
 	}
+
+	runner.I("package name :%s", runner.Name())
 
 	return nil
 }

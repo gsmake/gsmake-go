@@ -6,9 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+	"github.com/gsdocker/gsos/uuid"
 	"github.com/gsmake/gsmake/fs"
 )
 
@@ -67,12 +69,28 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 	if !fs.Exists(cachepath) {
 
-		rundir := filepath.Dir(cachepath)
-		dirname := filepath.Base(cachepath)
+		dirname := filepath.Base(uuid.New())
+
+		rundir := os.TempDir()
+
+		gitFS.I("cache package: %s", filepath.Base(cachepath))
+
+		startime := time.Now()
 
 		if err := gitFS.clone(remote, rundir, dirname); err != nil {
 			return gserrors.Newf(err, "clone cached repo error")
 		}
+
+		remote := filepath.Join(rundir, dirname)
+		rundir = filepath.Dir(cachepath)
+		dirname = filepath.Base(cachepath)
+
+		if err := gitFS.clone(remote, rundir, dirname); err != nil {
+			return gserrors.Newf(err, "clone cached repo error")
+		}
+
+		gitFS.I("cache package -- success %s", time.Now().Sub(startime))
+
 	}
 
 	gitFS.D("mount target dir :%s", target.Mapping)
@@ -80,9 +98,15 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 	rundir := filepath.Dir(target.Mapping)
 	dirname := filepath.Base(target.Mapping)
 
+	gitFS.I("clone cached package to userspace : %s", dirname)
+
+	startime := time.Now()
+
 	if err := gitFS.clone(cachepath, rundir, dirname); err != nil {
 		return gserrors.Newf(err, "clone cached repo error")
 	}
+
+	gitFS.I("clone cached package to userspace -- success %s", time.Now().Sub(startime))
 
 	// checkout version
 	if err := gitFS.checkout(target.Mapping, version); err != nil {
@@ -161,6 +185,22 @@ func (gitFS *GitFS) Dismount(rootfs RootFS, src, target *Entry) error {
 	return nil
 }
 
+// UpdateCache implement UserFS
+func (gitFS *GitFS) UpdateCache(rootfs RootFS, cachepath string) error {
+
+	gitFS.I("update cached package : %s", cachepath)
+
+	startime := time.Now()
+
+	if err := gitFS.pull(filepath.Join(cachepath)); err != nil {
+		return gserrors.Newf(err, "pull remote repo error")
+	}
+
+	gitFS.I("update cached package -- success %s", time.Now().Sub(startime))
+
+	return nil
+}
+
 // Update implement UserFS
 func (gitFS *GitFS) Update(rootfs RootFS, src, target *Entry, nocache bool) error {
 	gserrors.Require(target.Scheme == FSGSMake, "target must be rootfs node")
@@ -183,8 +223,9 @@ func (gitFS *GitFS) Update(rootfs RootFS, src, target *Entry, nocache bool) erro
 	}
 
 	if nocache {
-		if err := gitFS.pull(filepath.Join(cachepath)); err != nil {
-			return gserrors.Newf(err, "pull remote repo error")
+
+		if err := gitFS.UpdateCache(rootfs, cachepath); err != nil {
+			return err
 		}
 	}
 
@@ -194,9 +235,14 @@ func (gitFS *GitFS) Update(rootfs RootFS, src, target *Entry, nocache bool) erro
 	gitFS.D("clone rundir :%s ", rundir)
 	gitFS.D("clone dirname :%s ", dirname)
 
+	gitFS.I("clone cached package to userspace : %s", dirname)
+
+	startime := time.Now()
+
 	if err := gitFS.clone(cachepath, rundir, dirname); err != nil {
 		return gserrors.Newf(err, "clone cached repo error")
 	}
+	gitFS.I("clone cached package to userspace -- success %s", time.Now().Sub(startime))
 
 	// checkout version
 	if err := gitFS.checkout(target.Mapping, version); err != nil {

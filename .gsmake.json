@@ -21,6 +21,22 @@
 
         "atom" : {
             "description":"config golang atom environment,and start it."
+        },
+
+        "cache" : {
+            "description":"add current package into global cache"
+        },
+
+        "discache":{
+            "description":"remove current package from global cache"
+        },
+
+        "update":{
+            "description":"update packages"
         }
+    },
+
+    "properties":{
+        "gsmake.declare.scopes":["task","golang"]
     }
 }

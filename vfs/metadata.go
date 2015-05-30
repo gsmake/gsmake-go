@@ -30,18 +30,20 @@ type MountIndexer struct {
 // Metadata .
 type Metadata struct {
 	gslogger.Log
-	rootpath  string // gsmake root path
-	dbpath    string // Metadata directory
-	flocker   string // flock filename
-	userspace string // userspace directory
+	rootpath   string // gsmake root path
+	dbpath     string // Metadata directory
+	flocker    string // flock filename
+	userspace  string // userspace directory
+	targetpath string
 }
 
-func newMetadata(rootpath string, username string) (*Metadata, error) {
+func newMetadata(rootpath string, targetpath string) (*Metadata, error) {
 	db := &Metadata{
-		Log:      gslogger.Get("vfs_Metadata"),
-		rootpath: rootpath,
-		flocker:  filepath.Join(rootpath, ".db", "locker"),
-		dbpath:   filepath.Join(rootpath, ".db"),
+		Log:        gslogger.Get("vfs_Metadata"),
+		rootpath:   rootpath,
+		flocker:    filepath.Join(rootpath, ".db", "locker"),
+		dbpath:     filepath.Join(rootpath, ".db"),
+		targetpath: targetpath,
 	}
 
 	if !fs.Exists(db.dbpath) {
@@ -58,7 +60,7 @@ func newMetadata(rootpath string, username string) (*Metadata, error) {
 			return err
 		}
 
-		if us, ok := userspaces[username]; ok {
+		if us, ok := userspaces[targetpath]; ok {
 			db.userspace = filepath.Join(rootpath, "userspace", us)
 			return nil
 		}
@@ -67,7 +69,7 @@ func newMetadata(rootpath string, username string) (*Metadata, error) {
 
 		db.userspace = filepath.Join(rootpath, "userspace", us)
 
-		userspaces[username] = us
+		userspaces[targetpath] = us
 
 		if err := db.writeIndexer("userspace", userspaces); err != nil {
 			return err
@@ -113,6 +115,34 @@ func newMetadata(rootpath string, username string) (*Metadata, error) {
 	})
 
 	return db, err
+}
+
+func (db *Metadata) clear() error {
+
+	path := filepath.Join(db.dbpath, filepath.Base(db.userspace))
+
+	if err := fs.RemoveAll(path); err != nil {
+		return gserrors.Newf(err, "remove userspace metadata error\n%s", path)
+	}
+
+	err := fs.FLock(db.flocker, func() error {
+
+		var userspaces map[string]string
+
+		if err := db.readIndexer("userspace", &userspaces); err != nil {
+			return err
+		}
+
+		delete(userspaces, db.targetpath)
+
+		if err := db.writeIndexer("userspace", userspaces); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return err
 }
 
 func (db *Metadata) queryredirect(from string) (to string, ok bool) {
