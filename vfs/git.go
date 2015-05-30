@@ -10,8 +10,8 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+	"github.com/gsdocker/gsos/fs"
 	"github.com/gsdocker/gsos/uuid"
-	"github.com/gsmake/gsmake/fs"
 )
 
 // ErrGitFS .
@@ -55,11 +55,7 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 		version = "master"
 	}
 
-	cachepath, err := rootfs.CacheRoot(src)
-
-	if err != nil {
-		return err
-	}
+	cachepath := rootfs.CacheRoot(src)
 
 	gitFS.D("mount remote url :%s", remote)
 
@@ -73,24 +69,31 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 		rundir := os.TempDir()
 
-		gitFS.I("cache package: %s", filepath.Base(cachepath))
+		gitFS.I("cache package: %s:%s", filepath.Base(cachepath), version)
 
 		startime := time.Now()
 
-		if err := gitFS.clone(remote, rundir, dirname); err != nil {
+		if err := gitFS.clone(remote, rundir, dirname, true); err != nil {
 			return gserrors.Newf(err, "clone cached repo error")
 		}
 
-		remote := filepath.Join(rundir, dirname)
+		remote2 := filepath.Join(rundir, dirname)
 		rundir = filepath.Dir(cachepath)
 		dirname = filepath.Base(cachepath)
 
-		if err := gitFS.clone(remote, rundir, dirname); err != nil {
+		if err := gitFS.clone(remote2, rundir, dirname, true); err != nil {
+			return gserrors.Newf(err, "clone cached repo error")
+		}
+
+		if err := gitFS.setRemote(cachepath, "origin", remote); err != nil {
 			return gserrors.Newf(err, "clone cached repo error")
 		}
 
 		gitFS.I("cache package -- success %s", time.Now().Sub(startime))
 
+		if err := rootfs.Cached(src); err != nil {
+			return err
+		}
 	}
 
 	gitFS.D("mount target dir :%s", target.Mapping)
@@ -102,7 +105,7 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 	startime := time.Now()
 
-	if err := gitFS.clone(cachepath, rundir, dirname); err != nil {
+	if err := gitFS.clone(cachepath, rundir, dirname, false); err != nil {
 		return gserrors.Newf(err, "clone cached repo error")
 	}
 
@@ -116,7 +119,7 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 	return nil
 }
 
-func (gitFS *GitFS) clone(remote, rundir, dirname string) error {
+func (gitFS *GitFS) clone(remote, rundir, dirname string, bare bool) error {
 
 	if !fs.Exists(rundir) {
 		if err := fs.MkdirAll(rundir, 0755); err != nil {
@@ -132,7 +135,13 @@ func (gitFS *GitFS) clone(remote, rundir, dirname string) error {
 		}
 	}
 
-	cmd := exec.Command("git", "clone", remote, dirname)
+	var cmd *exec.Cmd
+
+	if !bare {
+		cmd = exec.Command("git", "clone", remote, dirname)
+	} else {
+		cmd = exec.Command("git", "clone", "--bare", remote, dirname)
+	}
 
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -143,9 +152,24 @@ func (gitFS *GitFS) clone(remote, rundir, dirname string) error {
 	return cmd.Run()
 }
 
-func (gitFS *GitFS) pull(rundir string) error {
+func (gitFS *GitFS) setRemote(rundir string, name string, url string) error {
 
-	cmd := exec.Command("git", "pull", "--all")
+	gitFS.D("chage remote :\n\trepo:%s\n\tname:%s\n\turl:%s", rundir, name, url)
+
+	cmd := exec.Command("git", "remote", "set-url", name, url)
+
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	cmd.Dir = rundir
+
+	return cmd.Run()
+}
+
+func (gitFS *GitFS) fetch(rundir string) error {
+
+	cmd := exec.Command("git", "fetch", "--all")
 
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -192,7 +216,7 @@ func (gitFS *GitFS) UpdateCache(rootfs RootFS, cachepath string) error {
 
 	startime := time.Now()
 
-	if err := gitFS.pull(filepath.Join(cachepath)); err != nil {
+	if err := gitFS.fetch(filepath.Join(cachepath)); err != nil {
 		return gserrors.Newf(err, "pull remote repo error")
 	}
 
@@ -216,11 +240,7 @@ func (gitFS *GitFS) Update(rootfs RootFS, src, target *Entry, nocache bool) erro
 		version = "master"
 	}
 
-	cachepath, err := rootfs.CacheRoot(src)
-
-	if err != nil {
-		return err
-	}
+	cachepath := rootfs.CacheRoot(src)
 
 	if nocache {
 
@@ -239,7 +259,7 @@ func (gitFS *GitFS) Update(rootfs RootFS, src, target *Entry, nocache bool) erro
 
 	startime := time.Now()
 
-	if err := gitFS.clone(cachepath, rundir, dirname); err != nil {
+	if err := gitFS.clone(cachepath, rundir, dirname, false); err != nil {
 		return gserrors.Newf(err, "clone cached repo error")
 	}
 	gitFS.I("clone cached package to userspace -- success %s", time.Now().Sub(startime))

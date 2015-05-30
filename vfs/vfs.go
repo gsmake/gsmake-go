@@ -11,7 +11,7 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-	"github.com/gsmake/gsmake/fs"
+	"github.com/gsdocker/gsos/fs"
 )
 
 // errors
@@ -120,7 +120,10 @@ type RootFS interface {
 	// Clear clear userspace
 	Clear() error
 	// Get mount fs cache root
-	CacheRoot(src *Entry) (string, error)
+	CacheRoot(src *Entry) string
+	// Cached update cache metadata
+	Cached(src *Entry) error
+
 	// Protocol get host default protocol
 	Protocol(host string) string
 	// TempDir domain tempdir
@@ -321,6 +324,8 @@ func (rootfs *VFS) Userspace() string {
 // Mount implement RootFS interface
 func (rootfs *VFS) Mount(src, target string) error {
 
+	rootfs.D("mount src : %s", src)
+
 	if to, ok := rootfs.meta.queryredirect(src); ok {
 
 		rootfs.D("redirect \n\tfrom :%s\n\tto :%s", src, to)
@@ -416,25 +421,23 @@ func (rootfs *VFS) Update(target string, nocache bool) error {
 	return srcE.userfs.Update(rootfs, srcE, targetE, nocache)
 }
 
-// CacheRoot implement RootFS interface
-func (rootfs *VFS) CacheRoot(src *Entry) (string, error) {
+// Cached implement RootFS interface
+func (rootfs *VFS) Cached(src *Entry) error {
 
-	cacheroot := rootfs.meta.cacheRoot(src)
-
-	err := rootfs.meta.tx(func() error {
+	return rootfs.meta.tx(func() error {
 
 		indexername := "cached"
 
 		var indexer map[string][2]string
 
-		key := fmt.Sprintf("%s://%s/%s", src.Scheme, src.Host, src.Path)
+		key := fmt.Sprintf("%s://%s%s", src.Scheme, src.Host, src.Path)
 
 		if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
 			return err
 		}
 
 		if _, ok := indexer[key]; !ok {
-			indexer[key] = [2]string{src.userfs.String(), cacheroot}
+			indexer[key] = [2]string{src.userfs.String(), rootfs.meta.cacheRoot(src)}
 		}
 
 		if err := rootfs.meta.writeIndexer(indexername, indexer); err != nil {
@@ -443,8 +446,12 @@ func (rootfs *VFS) CacheRoot(src *Entry) (string, error) {
 
 		return nil
 	})
+}
 
-	return cacheroot, err
+// CacheRoot implement RootFS interface
+func (rootfs *VFS) CacheRoot(src *Entry) string {
+
+	return rootfs.meta.cacheRoot(src)
 }
 
 // Clear implement RootFS
@@ -548,6 +555,7 @@ func (rootfs *VFS) Protocol(host string) string {
 
 // Mounted implement rootfs
 func (rootfs *VFS) Mounted(src string, target string) bool {
+
 	targetE, _, err := rootfs.Open(target)
 
 	if err != nil {

@@ -2,10 +2,9 @@
     "name":"github.com/gsmake/gsmake",
 
     "import" : [
-        {"name" : "github.com/gsdocker/gsos"},
-        {"name" : "github.com/gsdocker/gserrors"},
-        {"name" : "github.com/gsdocker/gsconfig"},
-        {"name" : "github.com/gsdocker/gslogger"}
+        {"name" : "github.com/gsdocker/gsos","version":"v2.0"},
+        {"name" : "github.com/gsdocker/gserrors","version":"v2.0"},
+        {"name" : "github.com/gsdocker/gslogger","version":"v2.0"}
     ],
 
     "task" : {
