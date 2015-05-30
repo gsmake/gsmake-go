@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
@@ -60,31 +62,29 @@ func newMetadata(rootpath string, targetpath string) (*Metadata, error) {
 			return err
 		}
 
-		// // remove temp userspace
-		// for k, v := range userspaces {
-		// 	if strings.HasPrefix(k, os.TempDir()) {
-		//
-		// 		path := filepath.Join(db.dbpath, v)
-		//
-		// 		if fs.Exists(path) {
-		//
-		//
-		//
-		// 			if err := fs.RemoveAll(path); err != nil {
-		// 				return gserrors.Newf(err, "clear temp userspace metadata error\n%s", path)
-		// 			}
-		// 		}
-		//
-		// 		path = filepath.Join(rootpath, "userspace", v)
-		//
-		// 		if fs.Exists(path) {
-		// 			if err := fs.RemoveAll(path); err != nil {
-		// 				return gserrors.Newf(err, "clear temp userspace error\n%s", path)
-		// 			}
-		// 		}
-		//
-		// 	}
-		// }
+		// remove temp userspace
+		for k, v := range userspaces {
+			if strings.HasPrefix(k, os.TempDir()) {
+
+				path := filepath.Join(db.dbpath, v)
+
+				if fs.Exists(path) {
+
+					if err := fs.RemoveAll(path); err != nil {
+						return gserrors.Newf(err, "clear temp userspace metadata error\n%s", path)
+					}
+				}
+
+				path = filepath.Join(rootpath, "userspace", v)
+
+				if fs.Exists(path) {
+					if err := fs.RemoveAll(path); err != nil {
+						return gserrors.Newf(err, "clear temp userspace error\n%s", path)
+					}
+				}
+
+			}
+		}
 
 		if us, ok := userspaces[targetpath]; ok {
 			db.userspace = filepath.Join(rootpath, "userspace", us)
@@ -197,7 +197,7 @@ func (db *Metadata) queryredirect(from string) (to string, ok bool) {
 
 func (db *Metadata) redirect(from, to string, enable bool) error {
 
-	err := fs.FLock(db.flocker, func() error {
+	return fs.FLock(db.flocker, func() error {
 
 		var mapping map[string]string
 
@@ -219,12 +219,6 @@ func (db *Metadata) redirect(from, to string, enable bool) error {
 
 		return nil
 	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (db *Metadata) site(host string) (site Site, ok bool) {

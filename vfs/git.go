@@ -55,11 +55,7 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 		version = "master"
 	}
 
-	cachepath, err := rootfs.CacheRoot(src)
-
-	if err != nil {
-		return err
-	}
+	cachepath := rootfs.CacheRoot(src)
 
 	gitFS.D("mount remote url :%s", remote)
 
@@ -91,6 +87,9 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 		gitFS.I("cache package -- success %s", time.Now().Sub(startime))
 
+		if err := rootfs.Cached(src); err != nil {
+			return err
+		}
 	}
 
 	gitFS.D("mount target dir :%s", target.Mapping)
@@ -216,11 +215,7 @@ func (gitFS *GitFS) Update(rootfs RootFS, src, target *Entry, nocache bool) erro
 		version = "master"
 	}
 
-	cachepath, err := rootfs.CacheRoot(src)
-
-	if err != nil {
-		return err
-	}
+	cachepath := rootfs.CacheRoot(src)
 
 	if nocache {
 
