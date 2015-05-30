@@ -77,11 +77,11 @@ func (gitFS *GitFS) Mount(rootfs RootFS, src, target *Entry) error {
 			return gserrors.Newf(err, "clone cached repo error")
 		}
 
-		remote := filepath.Join(rundir, dirname)
+		remote2 := filepath.Join(rundir, dirname)
 		rundir = filepath.Dir(cachepath)
 		dirname = filepath.Base(cachepath)
 
-		if err := gitFS.clone(remote, rundir, dirname, true); err != nil {
+		if err := gitFS.clone(remote2, rundir, dirname, true); err != nil {
 			return gserrors.Newf(err, "clone cached repo error")
 		}
 
@@ -153,6 +153,9 @@ func (gitFS *GitFS) clone(remote, rundir, dirname string, bare bool) error {
 }
 
 func (gitFS *GitFS) setRemote(rundir string, name string, url string) error {
+
+	gitFS.D("chage remote :\n\trepo:%s\n\tname:%s\n\turl:%s", rundir, name, url)
+
 	cmd := exec.Command("git", "remote", "set-url", name, url)
 
 	cmd.Stderr = os.Stderr
