@@ -15,7 +15,7 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-	"github.com/gsdocker/gsos"
+	"github.com/gsdocker/gsos/fs"
 	"github.com/gsmake/gsmake/vfs"
 )
 
@@ -65,7 +65,7 @@ func Compile(rootfs vfs.RootFS) (*AOTCompiler, error) {
 		packages: loader.packages["task"],
 	}
 
-	compiler.binarypath = filepath.Join(compiler.rootfs.TempDir("task"), "runner"+gsos.ExeSuffix)
+	compiler.binarypath = filepath.Join(compiler.rootfs.TempDir("task"), "runner"+fs.ExeSuffix)
 
 	log.I("compile runner ... ")
 
@@ -88,7 +88,7 @@ func (compiler *AOTCompiler) compile() error {
 
 	compiler.D("srcroot :%s", srcRoot)
 
-	if gsos.IsExist(srcRoot) {
+	if fs.Exists(srcRoot) {
 		err := os.RemoveAll(srcRoot)
 
 		if err != nil {

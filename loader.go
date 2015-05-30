@@ -13,8 +13,8 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-	"github.com/gsdocker/gsos"
-	"github.com/gsmake/gsmake/fs"
+
+	"github.com/gsdocker/gsos/fs"
 	"github.com/gsmake/gsmake/vfs"
 )
 
@@ -107,6 +107,8 @@ type Package struct {
 	Import     []Import         // package import field
 	Task       map[string]*Task // package defined task
 	Properties Properties       // properties
+	version    string           // package version
+	loadPath   []*Package       // package load path
 }
 
 // Loader package loader
@@ -150,6 +152,10 @@ func (loader *Loader) addpackage(domain string, pkg *Package) {
 
 		loader.packages[domain] = packages
 	}
+
+	pkg.loadPath = make([]*Package, len(loader.checkerOfDCG))
+
+	copy(pkg.loadPath, loader.checkerOfDCG)
 
 	packages[pkg.Name] = pkg
 }
@@ -267,6 +273,7 @@ func (loader *Loader) tryMount(domain, name, srcpath, version, scm string) (stri
 	src := fmt.Sprintf("%s://%s?version=%s", scm, srcpath, version)
 
 	if !loader.rootfs.Mounted(src, target) {
+
 		if err := loader.rootfs.Mount(src, target); err != nil {
 			return src, target, err
 		}
@@ -275,7 +282,41 @@ func (loader *Loader) tryMount(domain, name, srcpath, version, scm string) (stri
 	return src, target, nil
 }
 
+func loadpath(path []*Package, name, version string) string {
+	var buff bytes.Buffer
+
+	for _, pkg := range path {
+		buff.WriteString(fmt.Sprintf("\t\t%s %s\n", pkg.Name, pkg.version))
+	}
+
+	buff.WriteString(fmt.Sprintf("\t\t%s %s\n", name, version))
+
+	return buff.String()
+}
+
 func (loader *Loader) loadpackage(i Import) (*Package, error) {
+
+	if packages, ok := loader.packages[i.Domain]; ok {
+
+		if pkg, ok := packages[i.Name]; ok {
+
+			if pkg.version != i.Version {
+				return nil, gserrors.Newf(
+					ErrLoad,
+					"import package with diff version\n\tthe one:\n%s\n\tthe other:\n%s",
+					loadpath(pkg.loadPath, pkg.Name, pkg.version),
+					loadpath(loader.checkerOfDCG, i.Name, i.Version),
+				)
+			}
+
+			return pkg, nil
+		}
+	}
+
+	// DCG check
+	if err := loader.checkDCG(i.Name); err != nil {
+		return nil, err
+	}
 
 	_, target, err := loader.tryMount(i.Domain, i.Name, i.Name, i.Version, i.SCM)
 
@@ -289,22 +330,15 @@ func (loader *Loader) loadpackage(i Import) (*Package, error) {
 		return nil, err
 	}
 
-	if packages, ok := loader.packages[i.Domain]; ok {
+	importpkg, err := loader.loadpackagev2(i.Domain, i.Name, entry.Mapping)
 
-		if pkg, ok := packages[i.Name]; ok {
-			return pkg, nil
-		}
-
-	}
-
-	// DCG check
-	if err := loader.checkDCG(target); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	importpkg, err := loader.loadpackagev2(i.Domain, i.Name, entry.Mapping)
+	importpkg.version = i.Version
 
-	return importpkg, err
+	return importpkg, nil
 }
 
 func (loader *Loader) parseDomain(src string) []string {
@@ -321,7 +355,7 @@ func (loader *Loader) loadpackagev2(domain, name, fullpath string) (*Package, er
 
 	jsonfile := filepath.Join(fullpath, ".gsmake.json")
 
-	if !gsos.IsExist(jsonfile) {
+	if !fs.Exists(jsonfile) {
 		// this package is a traditional golang package
 		return &Package{
 			Name: name,

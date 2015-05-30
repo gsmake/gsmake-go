@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
+	"github.com/gsdocker/gsos/fs"
 	"github.com/gsdocker/gsos/uuid"
-	"github.com/gsmake/gsmake/fs"
 )
 
 // Site .
@@ -60,6 +62,30 @@ func newMetadata(rootpath string, targetpath string) (*Metadata, error) {
 			return err
 		}
 
+		// remove temp userspace
+		for k, v := range userspaces {
+			if strings.HasPrefix(k, os.TempDir()) {
+
+				path := filepath.Join(db.dbpath, v)
+
+				if fs.Exists(path) {
+
+					if err := fs.RemoveAll(path); err != nil {
+						return gserrors.Newf(err, "clear temp userspace metadata error\n%s", path)
+					}
+				}
+
+				path = filepath.Join(rootpath, "userspace", v)
+
+				if fs.Exists(path) {
+					if err := fs.RemoveAll(path); err != nil {
+						return gserrors.Newf(err, "clear temp userspace error\n%s", path)
+					}
+				}
+
+			}
+		}
+
 		if us, ok := userspaces[targetpath]; ok {
 			db.userspace = filepath.Join(rootpath, "userspace", us)
 			return nil
@@ -77,6 +103,10 @@ func newMetadata(rootpath string, targetpath string) (*Metadata, error) {
 
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	err = fs.FLock(db.flocker, func() error {
 

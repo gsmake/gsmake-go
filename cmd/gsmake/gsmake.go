@@ -12,7 +12,7 @@ import (
 
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
-	"github.com/gsdocker/gsos"
+	"github.com/gsdocker/gsos/fs"
 	"github.com/gsdocker/gsos/uuid"
 	"github.com/gsmake/gsmake"
 	"github.com/gsmake/gsmake/vfs"
@@ -74,7 +74,7 @@ func readconfig(log gslogger.Log) (string, string) {
 
 	var packagedir string
 
-	if gsos.IsExist(".gsmake.json") {
+	if fs.Exists(".gsmake.json") {
 		fullpath, err := filepath.Abs("./")
 
 		if err != nil {
@@ -118,7 +118,7 @@ func readconfig(log gslogger.Log) (string, string) {
 
 func main() {
 
-	currentdir := gsos.CurrentDir()
+	currentdir := fs.Current()
 
 	gslogger.Console(gsmake.Logfmt, gsmake.LogTimefmt)
 
@@ -141,6 +141,7 @@ func main() {
 
 	if err != nil {
 		log.E("%s", err)
+		gslogger.Join()
 		os.Exit(1)
 	}
 
