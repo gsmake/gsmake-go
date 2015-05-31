@@ -29,87 +29,8 @@ const (
 
 // Errors .
 var (
-	ErrLoad     = errors.New("load package error")
-	ErrNotFound = errors.New("property not found")
+	ErrLoad = errors.New("load package error")
 )
-
-// Properties .
-type Properties map[string]interface{}
-
-// Expand rewrites content to replace ${k} with properties[k] for each key k in match.
-func (properties Properties) Expand(content string) string {
-	for k, v := range properties {
-
-		if stringer, ok := v.(fmt.Stringer); ok {
-			fmt.Println(stringer.String())
-			content = strings.Replace(content, "${"+k+"}", stringer.String(), -1)
-		} else {
-			content = strings.Replace(content, "${"+k+"}", fmt.Sprintf("%v", v), -1)
-		}
-
-	}
-	return content
-}
-
-// Query query property value
-func (properties Properties) Query(name string, val interface{}) error {
-	if property, ok := properties[name]; ok {
-		content, err := json.Marshal(property)
-
-		if err != nil {
-			return err
-		}
-
-		return json.Unmarshal(content, val)
-	}
-
-	return ErrNotFound
-}
-
-// NotFound property not found
-func NotFound(err error) bool {
-	for {
-		if gserror, ok := err.(gserrors.GSError); ok {
-			err = gserror.Origin()
-			continue
-		}
-
-		break
-	}
-
-	if err == ErrNotFound {
-		return true
-	}
-
-	return false
-}
-
-// Import the gsmake import instruction description
-type Import struct {
-	Name    string // import package name
-	Version string // import package version
-	Domain  string `json:"scope"` // runtimes import flag, default is AOT import
-	SCM     string // the source control manager type
-	URL     string // remote url
-}
-
-// Task package defined task description
-type Task struct {
-	Prev        string // depend task name
-	Description string // task description
-	Package     string `json:"-"`     // package name which defined this task
-	Domain      string `json:"scope"` // scope belongs to
-}
-
-// Package describe a gsmake package object
-type Package struct {
-	Name       string           // package name string
-	Import     []Import         // package import field
-	Task       map[string]*Task // package defined task
-	Properties Properties       // properties
-	version    string           // package version
-	loadPath   []*Package       // package load path
-}
 
 // Loader package loader
 type Loader struct {
@@ -135,11 +56,11 @@ func load(rootfs vfs.RootFS) (*Loader, error) {
 
 	err := loader.load()
 
-	loader.I("load package -- success %s", time.Now().Sub(start))
-
 	if err != nil {
 		return nil, err
 	}
+
+	loader.I("load package -- success %s", time.Now().Sub(start))
 
 	return loader, nil
 }
@@ -191,17 +112,9 @@ func (loader *Loader) load() error {
 		return err
 	}
 
-	pkg, err = loader.loadpackagev2("", pkg.Name, loader.targetpath)
+	domains := ParseDomain(pkg.Domain, DomainDefault)
 
-	if err != nil {
-		return err
-	}
-
-	var domains []string
-
-	for domain := range loader.packages {
-
-		domains = append(domains, domain)
+	for _, domain := range domains {
 
 		_, _, err := loader.tryMount(domain, pkg.Name, loader.targetpath, "current", "file")
 
@@ -209,7 +122,14 @@ func (loader *Loader) load() error {
 			return err
 		}
 
+		pkg, err = loader.loadpackagev2(domain, pkg.Name, loader.targetpath)
+
+		if err != nil {
+			return err
+		}
+
 		loader.addpackage(domain, pkg)
+
 	}
 
 	loader.D("loaded domain : [%s]", strings.Join(domains, ","))
@@ -341,24 +261,15 @@ func (loader *Loader) loadpackage(i Import) (*Package, error) {
 	return importpkg, nil
 }
 
-func (loader *Loader) parseDomain(src string) []string {
-	domains := strings.Split(src, "|")
-
-	if len(domains) == 1 && domains[0] == "" {
-		domains = []string{"golang"}
-	}
-
-	return domains
-}
-
-func (loader *Loader) loadpackagev2(domain, name, fullpath string) (*Package, error) {
+func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Package, error) {
 
 	jsonfile := filepath.Join(fullpath, ".gsmake.json")
 
 	if !fs.Exists(jsonfile) {
 		// this package is a traditional golang package
 		return &Package{
-			Name: name,
+			Name:   name,
+			Domain: currentDomain,
 		}, nil
 	}
 
@@ -370,67 +281,86 @@ func (loader *Loader) loadpackagev2(domain, name, fullpath string) (*Package, er
 
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
 
-	for _, v := range pkg.Import {
+	defer func() {
+		loader.checkerOfDCG = loader.checkerOfDCG[:len(loader.checkerOfDCG)-1]
+	}()
 
-		if _, ok := loader.packages[v.Name]; ok {
-			continue
-		}
+	for _, ir := range pkg.Import {
 
-		if v.Version == "" {
-			v.Version = "current"
-		}
-
-		if v.SCM == "" {
-
-			u, err := url.Parse(fmt.Sprintf("https://%s", v.Name))
-
-			if err != nil {
-				return nil, gserrors.Newf(err, "%s invalid import package :%s", name, v.Name)
-			}
-
-			v.SCM = loader.rootfs.Protocol(u.Host)
-		}
-
-		domains := loader.parseDomain(v.Domain)
-
-		for _, d := range domains {
-
-			if domain != d && domain != "" {
-
-				continue
-			}
-
-			v.Domain = d
-
-			importpkg, err := loader.loadpackage(v)
-
-			if err != nil {
-				return nil, err
-			}
-
-			loader.addpackage(d, importpkg)
+		if err := loader.importPackage(currentDomain, pkg, ir); err != nil {
+			return nil, err
 		}
 	}
-
-	loader.checkerOfDCG = loader.checkerOfDCG[:len(loader.checkerOfDCG)-1]
 
 	for _, task := range pkg.Task {
 		task.Package = name
 	}
 
-	// search scope declare
+	return pkg, nil
+}
 
-	var scopes []string
+func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Import) error {
 
-	if err := pkg.Properties.Query("gsmake.declare.scopes", &scopes); err == nil {
-		for _, scope := range scopes {
-			if _, ok := loader.packages[scope]; !ok {
-				loader.packages[scope] = make(map[string]*Package)
+	if ir.Version == "" {
+		ir.Version = "current"
+	}
+
+	// calc scm url
+	if ir.SCM == "" {
+
+		u, err := url.Parse(fmt.Sprintf("https://%s", ir.Name))
+
+		if err != nil {
+			return gserrors.Newf(err, "%s invalid import package :%s", parent.Name, ir.Name)
+		}
+
+		ir.SCM = loader.rootfs.Protocol(u.Host)
+	}
+
+	domains := ParseDomain(ir.Domain, parent.Domain)
+
+	parentDomains := ParseDomain(parent.Domain, DomainDefault)
+
+	for _, domain := range domains {
+
+		valid := false
+
+		// check domain if valid .
+		for _, parentDomain := range parentDomains {
+			if domain == parentDomain {
+				valid = true
+				break
 			}
+		}
+
+		if !valid {
+			return gserrors.Newf(
+				ErrLoad,
+				"%s %s invalid import %s %s\n\t unknown domain",
+				parent.Name,
+				parent.version,
+				ir.Name,
+				ir.Version,
+			)
+		}
+
+		if domain == currentDomain {
+
+			ir.Domain = domain
+
+			pkg, err := loader.loadpackage(ir)
+
+			if err != nil {
+				return err
+			}
+
+			loader.addpackage(domain, pkg)
+
+			return nil
 		}
 	}
 
-	return pkg, nil
+	return nil
 }
 
 func loadjson(file string) (*Package, error) {
@@ -441,7 +371,9 @@ func loadjson(file string) (*Package, error) {
 		return nil, gserrors.Newf(err, "load config file err\n\t%s", file)
 	}
 
-	var config *Package
+	config := &Package{
+		Domain: DomainDefault,
+	}
 
 	err = json.Unmarshal(content, &config)
 

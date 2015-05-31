@@ -42,7 +42,7 @@ func (vars *ImportVars) Set(val string) error {
 
 var importVars ImportVars
 
-var cacheflag = flag.Bool("nocache", false, "using caching packages")
+var clearflag = flag.Bool("clear", false, "clear usrspace")
 var verbflag = flag.Bool("v", false, "print more debug information")
 var rootflag = flag.String("root", "", "the gsmake's root path")
 
@@ -169,6 +169,12 @@ func main() {
 		}()
 	}
 
+	if *clearflag {
+		if err := rootfs.Clear(); err != nil {
+			panic(err)
+		}
+	}
+
 	log.I("build gsmake runner ...")
 
 	startime := time.Now()
@@ -182,10 +188,6 @@ func main() {
 	log.I("build gsmake runner -- success %v", time.Now().Sub(startime))
 
 	args := []string{}
-
-	if *cacheflag {
-		args = append(args, "-nocache")
-	}
 
 	if *verbflag {
 		args = append(args, "-v")

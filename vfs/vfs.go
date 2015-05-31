@@ -12,6 +12,7 @@ import (
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos/fs"
+	"github.com/gsmake/gsmake/property"
 )
 
 // errors
@@ -20,24 +21,6 @@ var (
 	ErrFS       = errors.New("unknown fs")
 	ErrNotFound = errors.New("vfs node not found")
 )
-
-// Properties .
-type Properties map[string]interface{}
-
-// Expand rewrites content to replace ${k} with properties[k] for each key k in match.
-func Expand(content string, properties Properties) string {
-	for k, v := range properties {
-
-		if stringer, ok := v.(fmt.Stringer); ok {
-			fmt.Println(stringer.String())
-			content = strings.Replace(content, "${"+k+"}", stringer.String(), -1)
-		} else {
-			content = strings.Replace(content, "${"+k+"}", fmt.Sprintf("%v", v), -1)
-		}
-
-	}
-	return content
-}
 
 // Exists .
 func Exists(rootfs RootFS, target string) bool {
@@ -278,7 +261,7 @@ func (rootfs *VFS) parseurl(src string) (*Entry, error) {
 			}
 
 			// Build map of named subexpression matches for expand.
-			properties := Properties{}
+			properties := property.Properties{}
 
 			for i, name := range matcher.SubexpNames() {
 
@@ -288,9 +271,9 @@ func (rootfs *VFS) parseurl(src string) (*Entry, error) {
 			}
 
 			if entry.RawQuery == "" {
-				entry.RawQuery = "remote=" + Expand(site.URL, properties)
+				entry.RawQuery = "remote=" + properties.Expand(site.URL)
 			} else {
-				entry.RawQuery = entry.RawQuery + "&remote=" + Expand(site.URL, properties)
+				entry.RawQuery = entry.RawQuery + "&remote=" + properties.Expand(site.URL)
 			}
 		}
 
@@ -462,13 +445,7 @@ func (rootfs *VFS) Clear() error {
 	if err != nil {
 		return err
 	}
-
-	err = fs.RemoveAll(rootfs.userspace)
-
-	if err != nil {
-		return gserrors.Newf(err, "remove userspace error")
-	}
-
+	
 	return nil
 }
 
@@ -647,6 +624,7 @@ func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
 				return err
 			}
 		}
+
 	}
 
 	if strings.HasPrefix(rootfs.targetpath, os.TempDir()) {
