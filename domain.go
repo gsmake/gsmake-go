@@ -4,7 +4,7 @@ import "strings"
 
 //  domain strings
 const (
-	DomainDefault = "golang"
+	DomainDefault = "task|golang"
 	DomainTask    = "task"
 )
 
