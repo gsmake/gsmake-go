@@ -169,7 +169,7 @@ func (gitFS *GitFS) setRemote(rundir string, name string, url string) error {
 
 func (gitFS *GitFS) fetch(rundir string) error {
 
-	cmd := exec.Command("git", "fetch", "--all")
+	cmd := exec.Command("git", "fetch", "--tag", "--all")
 
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

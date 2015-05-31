@@ -2,9 +2,9 @@
     "name":"github.com/gsmake/gsmake",
 
     "import" : [
-        {"name" : "github.com/gsdocker/gsos","version":"v2.0"},
-        {"name" : "github.com/gsdocker/gserrors","version":"v2.0"},
-        {"name" : "github.com/gsdocker/gslogger","version":"v2.0"}
+        {"name" : "github.com/gsdocker/gsos","version":"v2.0","scope":"task|golang"},
+        {"name" : "github.com/gsdocker/gserrors","version":"v2.0","scope":"task|golang"},
+        {"name" : "github.com/gsdocker/gslogger","version":"v2.0","scope":"task|golang"}
     ],
 
     "task" : {
