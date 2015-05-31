@@ -279,6 +279,18 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 		return nil, err
 	}
 
+	valid := false
+
+	for _, domain := range ParseDomain(pkg.Domain, DomainDefault) {
+		if domain == currentDomain {
+			valid = true
+		}
+	}
+
+	if !valid {
+		return nil, gserrors.Newf(err, "%s unsupport domain :%s", pkg.Name, currentDomain)
+	}
+
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
 
 	defer func() {
