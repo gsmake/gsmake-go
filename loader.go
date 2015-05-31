@@ -345,7 +345,7 @@ func (loader *Loader) parseDomain(src string) []string {
 	domains := strings.Split(src, "|")
 
 	if len(domains) == 1 && domains[0] == "" {
-		domains = []string{"task", "golang"}
+		domains = []string{"golang"}
 	}
 
 	return domains
