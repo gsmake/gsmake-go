@@ -114,6 +114,19 @@ func (loader *Loader) load() error {
 
 	domains := ParseDomain(pkg.Domain, DomainDefault)
 
+	hasTask := false
+
+	for _, v := range domains {
+		if v == "task" {
+			hasTask = true
+			break
+		}
+	}
+
+	if !hasTask {
+		domains = append(domains, "task")
+	}
+
 	for _, domain := range domains {
 
 		_, _, err := loader.tryMount(domain, pkg.Name, loader.targetpath, "current", "file")
@@ -287,6 +300,10 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 		}
 	}
 
+	if currentDomain == "task" && fullpath == loader.targetpath {
+		valid = true
+	}
+
 	if !valid {
 
 		return nil, gserrors.Newf(
@@ -342,17 +359,23 @@ func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Im
 
 	for _, domain := range domains {
 
-		loader.D("%s import %s %s", parent.Name, ir.Name, domain)
+		if domain == currentDomain {
 
-		ir.Domain = domain
+			loader.D("%s %s import %s %s", parent.Name, currentDomain, ir.Name, domain)
 
-		pkg, err := loader.loadpackage(ir)
+			ir.Domain = domain
 
-		if err != nil {
-			return err
+			pkg, err := loader.loadpackage(ir)
+
+			if err != nil {
+				return err
+			}
+
+			loader.addpackage(domain, pkg)
+
+			return nil
 		}
 
-		loader.addpackage(domain, pkg)
 	}
 
 	return nil
