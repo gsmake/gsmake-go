@@ -401,6 +401,21 @@ func (rootfs *VFS) Update(target string, nocache bool) error {
 		return gserrors.Newf(ErrURL, "target package not exists \n%s", target)
 	}
 
+	src := fmt.Sprintf("%s://%s%s?version=%s", srcE.Scheme, srcE.Host, srcE.Path, srcE.Query().Get("version"))
+
+	rootfs.D("update src :%s", src)
+
+	if to, ok := rootfs.meta.queryredirect(src); ok {
+
+		rootfs.D("redirect \n\tfrom :%s\n\tto :%s", src, to)
+
+		srcE, err = rootfs.parseurl(to)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return srcE.userfs.Update(rootfs, srcE, targetE, nocache)
 }
 
@@ -445,7 +460,7 @@ func (rootfs *VFS) Clear() error {
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -636,10 +651,10 @@ func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
 
 	return rootfs.List(func(src, target *Entry) bool {
 
-		err = src.userfs.Update(rootfs, src, target, false)
+		err = rootfs.Update(target.String(), false)
 
 		if err != nil {
-			panic(err)
+			return false
 		}
 
 		return true

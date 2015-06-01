@@ -226,6 +226,24 @@ func (runner *Runner) Path(domain, name string) (string, error) {
 	return target.Mapping, nil
 }
 
+// Property get package's property
+func (runner *Runner) Property(domain, packagename, name string, val interface{}) error {
+
+	_, target, err := runner.rootfs.Open(fmt.Sprintf("gsmake://%s?domain=%s", packagename, domain))
+
+	if err != nil {
+		return err
+	}
+
+	pkg, err := loadjson(filepath.Join(target.Mapping, ".gsmake.json"))
+
+	if err != nil {
+		return err
+	}
+
+	return pkg.Properties.Query(name, val)
+}
+
 // RootFS get rootfs object
 func (runner *Runner) RootFS() vfs.RootFS {
 	return runner.rootfs

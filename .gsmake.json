@@ -12,7 +12,7 @@
     "task" : {
 
         "setup" : {
-            "scope":"bootstrap",
+            "domain":"bootstrap",
             "description":"setup gsmake"
         },
 

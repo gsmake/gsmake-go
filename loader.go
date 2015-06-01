@@ -155,6 +155,8 @@ func (loader *Loader) load() error {
 
 	err = loader.rootfs.List(func(src, target *vfs.Entry) bool {
 
+		loader.D("check mounted vfs node :%s", target)
+
 		if _, ok := loader.querypackage(target.Domain(), target.Name()); !ok {
 			loader.I("dismount :%s", target)
 			loader.rootfs.Dismount(target.String())
@@ -216,21 +218,19 @@ func loadpath(path []*Package, name, version string) string {
 
 func (loader *Loader) loadpackage(i Import) (*Package, error) {
 
-	if packages, ok := loader.packages[i.Domain]; ok {
+	loader.D("load package %s %s", i.Name, i.Domain)
 
-		if pkg, ok := packages[i.Name]; ok {
-
-			if pkg.version != i.Version {
-				return nil, gserrors.Newf(
-					ErrLoad,
-					"import package with diff version\n\tthe one:\n%s\n\tthe other:\n%s",
-					loadpath(pkg.loadPath, pkg.Name, pkg.version),
-					loadpath(loader.checkerOfDCG, i.Name, i.Version),
-				)
-			}
-
-			return pkg, nil
+	if pkg, ok := loader.querypackage(i.Domain, i.Name); ok {
+		if pkg.version != i.Version {
+			return nil, gserrors.Newf(
+				ErrLoad,
+				"import package with diff version\n\tthe one:\n%s\n\tthe other:\n%s",
+				loadpath(pkg.loadPath, pkg.Name, pkg.version),
+				loadpath(loader.checkerOfDCG, i.Name, i.Version),
+			)
 		}
+
+		return pkg, nil
 	}
 
 	// DCG check
@@ -288,7 +288,14 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 	}
 
 	if !valid {
-		return nil, gserrors.Newf(err, "%s unsupport domain :%s", pkg.Name, currentDomain)
+
+		return nil, gserrors.Newf(
+			err,
+			"%s unsupport domain :%s\n%s",
+			pkg.Name,
+			currentDomain,
+			loadpath(loader.checkerOfDCG, pkg.Name, pkg.version),
+		)
 	}
 
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
@@ -331,45 +338,21 @@ func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Im
 
 	domains := ParseDomain(ir.Domain, parent.Domain)
 
-	parentDomains := ParseDomain(parent.Domain, DomainDefault)
+	//parentDomains := ParseDomain(parent.Domain, DomainDefault)
 
 	for _, domain := range domains {
 
-		valid := false
+		loader.D("%s import %s %s", parent.Name, ir.Name, domain)
 
-		// check domain if valid .
-		for _, parentDomain := range parentDomains {
-			if domain == parentDomain {
-				valid = true
-				break
-			}
+		ir.Domain = domain
+
+		pkg, err := loader.loadpackage(ir)
+
+		if err != nil {
+			return err
 		}
 
-		if !valid {
-			return gserrors.Newf(
-				ErrLoad,
-				"%s %s invalid import %s %s\n\t unknown domain",
-				parent.Name,
-				parent.version,
-				ir.Name,
-				ir.Version,
-			)
-		}
-
-		if domain == currentDomain {
-
-			ir.Domain = domain
-
-			pkg, err := loader.loadpackage(ir)
-
-			if err != nil {
-				return err
-			}
-
-			loader.addpackage(domain, pkg)
-
-			return nil
-		}
+		loader.addpackage(domain, pkg)
 	}
 
 	return nil
