@@ -100,13 +100,14 @@ type RootFS interface {
 	Update(src string, nocache bool) error
 	// UpdateAll update all userspace's packages
 	UpdateAll(nocache bool) error
+	// UpdateCache
+	UpdateCache(src string) error
 	// Clear clear userspace
 	Clear() error
 	// Get mount fs cache root
 	CacheRoot(src *Entry) string
 	// Cached update cache metadata
 	Cached(src *Entry) error
-
 	// Protocol get host default protocol
 	Protocol(host string) string
 	// TempDir domain tempdir
@@ -602,6 +603,44 @@ func (rootfs *VFS) Redirect(from, to string, enable bool) error {
 	}
 
 	return rootfs.meta.redirect(from, to, enable)
+}
+
+// UpdateCache .
+func (rootfs *VFS) UpdateCache(name string) error {
+
+	var indexer map[string][2]string
+
+	err := rootfs.meta.tx(func() error {
+
+		indexername := "cached"
+
+		if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if src, ok := indexer[name]; ok {
+
+		userfs, ok := rootfs.userfs[src[0]]
+
+		if !ok {
+			return gserrors.Newf(ErrFS, "unknown userfs :%s", src[0])
+		}
+
+		err := userfs.UpdateCache(rootfs, src[1])
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdateAll implement rootfs

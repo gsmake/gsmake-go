@@ -215,6 +215,20 @@ func (runner *Runner) Name() string {
 	return runner.currentpkg.Name
 }
 
+// SCM get package's default scm protocol type
+func (runner *Runner) SCM() string {
+
+	host := runner.currentpkg.Name
+
+	index := strings.Index(host, "/")
+
+	if index != -1 {
+		host = host[:index]
+	}
+
+	return runner.rootfs.Protocol(host)
+}
+
 // Path get package's path
 func (runner *Runner) Path(domain, name string) (string, error) {
 	_, target, err := runner.rootfs.Open(fmt.Sprintf("gsmake://%s?domain=%s", name, domain))
