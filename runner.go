@@ -38,7 +38,7 @@ func (cmd *TaskCmd) String() string {
 	}
 
 	return fmt.Sprintf(
-		"task details\n\tpackage:     %s\n\tdescription: %s\n\tscope:       %s\n",
+		"task :\n\t\tpackage:     %s\n\t\tdescription: %s\n\t\tscope:       %s\n",
 		cmd.Name,
 		cmd.Description,
 		scope,
@@ -168,7 +168,7 @@ func (group *taskGroup) invoke(runner *Runner, domain string, args ...string) er
 			scope = "ALL"
 		}
 
-		runner.I("exec task ...\n%s", task)
+		runner.I("exec %s", task)
 
 		startime := time.Now()
 
