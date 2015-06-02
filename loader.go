@@ -39,15 +39,17 @@ type Loader struct {
 	checkerOfDCG []*Package                     // DCG check stack
 	rootfs       vfs.RootFS                     // vfs object
 	targetpath   string                         // the loading package path
+	imports      []Import                       // extra imports
 }
 
-func load(rootfs vfs.RootFS) (*Loader, error) {
+func load(rootfs vfs.RootFS, imports []Import) (*Loader, error) {
 
 	loader := &Loader{
 		Log:        gslogger.Get("loader"),
 		targetpath: rootfs.TargetPath(),
 		packages:   make(map[string]map[string]*Package),
 		rootfs:     rootfs,
+		imports:    imports,
 	}
 
 	loader.I("load package ...")
@@ -143,6 +145,13 @@ func (loader *Loader) load() error {
 
 		loader.addpackage(domain, pkg)
 
+		if domain == "task" {
+
+			for _, ir := range loader.imports {
+				loader.importPackage(domain, pkg, ir)
+			}
+		}
+
 	}
 
 	loader.D("loaded domain : [%s]", strings.Join(domains, ","))
@@ -221,7 +230,7 @@ func loadpath(path []*Package, name, version string) string {
 	var buff bytes.Buffer
 
 	for _, pkg := range path {
-		buff.WriteString(fmt.Sprintf("\t\t%s %s\n", pkg.Name, pkg.version))
+		buff.WriteString(fmt.Sprintf("\t\t%s %s\n", pkg.Name, pkg.Version))
 	}
 
 	buff.WriteString(fmt.Sprintf("\t\t%s %s\n", name, version))
@@ -234,11 +243,12 @@ func (loader *Loader) loadpackage(i Import) (*Package, error) {
 	loader.D("load package %s %s", i.Name, i.Domain)
 
 	if pkg, ok := loader.querypackage(i.Domain, i.Name); ok {
-		if pkg.version != i.Version {
+		if pkg.Version != i.Version {
 			return nil, gserrors.Newf(
 				ErrLoad,
-				"import package with diff version\n\tthe one:\n%s\n\tthe other:\n%s",
-				loadpath(pkg.loadPath, pkg.Name, pkg.version),
+				"%s import package with diff version\n\tthe one:\n%s\n\tthe other:\n%s",
+				i.Domain,
+				loadpath(pkg.loadPath, pkg.Name, pkg.Version),
 				loadpath(loader.checkerOfDCG, i.Name, i.Version),
 			)
 		}
@@ -269,7 +279,7 @@ func (loader *Loader) loadpackage(i Import) (*Package, error) {
 		return nil, err
 	}
 
-	importpkg.version = i.Version
+	importpkg.Version = i.Version
 
 	return importpkg, nil
 }
@@ -311,7 +321,7 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 			"%s unsupport domain :%s\n%s",
 			pkg.Name,
 			currentDomain,
-			loadpath(loader.checkerOfDCG, pkg.Name, pkg.version),
+			loadpath(loader.checkerOfDCG, pkg.Name, pkg.Version),
 		)
 	}
 

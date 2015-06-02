@@ -26,7 +26,7 @@ func TaskUpdate(runner *gsmake.Runner, args ...string) error {
 
 		if runner.Name() == gsmake.PacakgeAnonymous {
 			for _, target := range flagSet.Args() {
-				if err := runner.RootFS().UpdateCache(target); err != nil {
+				if err := runner.RootFS().UpdateCache(fmt.Sprintf("gsmake://%s", target)); err != nil {
 					return err
 				}
 			}

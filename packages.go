@@ -26,6 +26,6 @@ type Package struct {
 	Import     []Import            // package import field
 	Task       map[string]*Task    // package defined task
 	Properties property.Properties // properties
-	version    string              // package version
+	Version    string              // package version
 	loadPath   []*Package          // package load path
 }

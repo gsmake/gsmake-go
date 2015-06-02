@@ -27,7 +27,7 @@ Use "gsmake list" list all task
 
 // ImportVars .
 type ImportVars struct {
-	imports []string // import packages
+	imports []gsmake.Import // import packages
 }
 
 func (vars *ImportVars) String() string {
@@ -36,7 +36,15 @@ func (vars *ImportVars) String() string {
 
 // Set .
 func (vars *ImportVars) Set(val string) error {
-	vars.imports = append(vars.imports, val)
+
+	var ir gsmake.Import
+
+	if err := json.Unmarshal([]byte(val), &ir); err != nil {
+		return gserrors.Newf(err, "unmarshal import json error\n%s", val)
+	}
+
+	vars.imports = append(vars.imports, ir)
+
 	return nil
 }
 
@@ -49,7 +57,7 @@ var rootflag = flag.String("root", "", "the gsmake's root path")
 var versionflag = flag.Bool("version", false, "print more debug information")
 
 func init() {
-	flag.Var(&importVars, "import", "import addition package")
+	flag.Var(&importVars, "I", "import addition package")
 }
 
 func readconfig(log gslogger.Log) (string, string) {
@@ -179,7 +187,7 @@ func main() {
 
 	startime := time.Now()
 
-	compiler, err := gsmake.Compile(rootfs)
+	compiler, err := gsmake.Compile(rootfs, importVars.imports)
 
 	if err != nil {
 		gserrors.Panic(err)
