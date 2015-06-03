@@ -72,7 +72,7 @@ func readconfig(log gslogger.Log) (string, string) {
 
 	homepath := os.Getenv(gsmake.EnvHome)
 
-	if homepath == "" {
+	if *rootflag != "" {
 		homepath = *rootflag
 	}
 

@@ -19,4 +19,4 @@ script:
     - export GSMAKE_HOME=`pwd`/.repo/
     - mkdir test && cd test
     - ../.repo/bin/gsmake create -o test -v v2.0 "github.com/gsdocker/gsweb:basic"
-    - cd test && ../../.repo/bin/gsmake gsweb list
+    - cd test && ../../.repo/bin/gsmake list

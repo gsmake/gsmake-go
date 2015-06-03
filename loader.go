@@ -302,6 +302,8 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 		return nil, err
 	}
 
+	// parse redirect instruction
+
 	valid := false
 
 	for _, domain := range ParseDomain(pkg.Domain, DomainDefault) {
