@@ -13,6 +13,9 @@ install:
 
 script:
     - ./setup.sh .repo
+    - list -a
+    - list .repo
+    - list .repo/bin/
     - export GSMAKE_HOME=`pwd`/.repo/
     - mkdir test && cd test
     - ../.repo/bin/gsmake create -o test -v v2.0 "github.com/gsdocker/gsweb:basic"
