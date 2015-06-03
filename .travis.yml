@@ -10,3 +10,11 @@ go:
 install:
     - go get ./...
     - ./setup.sh .repo
+    - mkdir test
+    - cd test
+
+
+script:
+    - export GSMAKE_HOME=`pwd`/../.repo/
+    - ../.repo/bin/gsmake create -o test -v v2.0 "github.com/gsdocker/gsweb:basic"
+    - cd test && ../../.repo/bin/gsmake list
