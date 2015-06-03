@@ -31,11 +31,11 @@ type AOTCompiler struct {
 }
 
 // Compile .
-func Compile(rootfs vfs.RootFS) (*AOTCompiler, error) {
+func Compile(rootfs vfs.RootFS, imports []Import) (*AOTCompiler, error) {
 
 	log := gslogger.Get("compile")
 
-	loader, err := load(rootfs)
+	loader, err := load(rootfs, imports)
 
 	if err != nil {
 		return nil, err

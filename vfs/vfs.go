@@ -12,6 +12,7 @@ import (
 	"github.com/gsdocker/gserrors"
 	"github.com/gsdocker/gslogger"
 	"github.com/gsdocker/gsos/fs"
+	"github.com/gsmake/gsmake/property"
 )
 
 // errors
@@ -20,24 +21,6 @@ var (
 	ErrFS       = errors.New("unknown fs")
 	ErrNotFound = errors.New("vfs node not found")
 )
-
-// Properties .
-type Properties map[string]interface{}
-
-// Expand rewrites content to replace ${k} with properties[k] for each key k in match.
-func Expand(content string, properties Properties) string {
-	for k, v := range properties {
-
-		if stringer, ok := v.(fmt.Stringer); ok {
-			fmt.Println(stringer.String())
-			content = strings.Replace(content, "${"+k+"}", stringer.String(), -1)
-		} else {
-			content = strings.Replace(content, "${"+k+"}", fmt.Sprintf("%v", v), -1)
-		}
-
-	}
-	return content
-}
 
 // Exists .
 func Exists(rootfs RootFS, target string) bool {
@@ -117,13 +100,14 @@ type RootFS interface {
 	Update(src string, nocache bool) error
 	// UpdateAll update all userspace's packages
 	UpdateAll(nocache bool) error
+	// UpdateCache
+	UpdateCache(src string) error
 	// Clear clear userspace
 	Clear() error
 	// Get mount fs cache root
 	CacheRoot(src *Entry) string
 	// Cached update cache metadata
 	Cached(src *Entry) error
-
 	// Protocol get host default protocol
 	Protocol(host string) string
 	// TempDir domain tempdir
@@ -278,7 +262,7 @@ func (rootfs *VFS) parseurl(src string) (*Entry, error) {
 			}
 
 			// Build map of named subexpression matches for expand.
-			properties := Properties{}
+			properties := property.Properties{}
 
 			for i, name := range matcher.SubexpNames() {
 
@@ -288,9 +272,9 @@ func (rootfs *VFS) parseurl(src string) (*Entry, error) {
 			}
 
 			if entry.RawQuery == "" {
-				entry.RawQuery = "remote=" + Expand(site.URL, properties)
+				entry.RawQuery = "remote=" + properties.Expand(site.URL)
 			} else {
-				entry.RawQuery = entry.RawQuery + "&remote=" + Expand(site.URL, properties)
+				entry.RawQuery = entry.RawQuery + "&remote=" + properties.Expand(site.URL)
 			}
 		}
 
@@ -418,6 +402,21 @@ func (rootfs *VFS) Update(target string, nocache bool) error {
 		return gserrors.Newf(ErrURL, "target package not exists \n%s", target)
 	}
 
+	src := fmt.Sprintf("%s://%s%s?version=%s", srcE.Scheme, srcE.Host, srcE.Path, srcE.Query().Get("version"))
+
+	rootfs.D("update src :%s", src)
+
+	if to, ok := rootfs.meta.queryredirect(src); ok {
+
+		rootfs.D("redirect \n\tfrom :%s\n\tto :%s", src, to)
+
+		srcE, err = rootfs.parseurl(to)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return srcE.userfs.Update(rootfs, srcE, targetE, nocache)
 }
 
@@ -461,12 +460,6 @@ func (rootfs *VFS) Clear() error {
 
 	if err != nil {
 		return err
-	}
-
-	err = fs.RemoveAll(rootfs.userspace)
-
-	if err != nil {
-		return gserrors.Newf(err, "remove userspace error")
 	}
 
 	return nil
@@ -612,6 +605,44 @@ func (rootfs *VFS) Redirect(from, to string, enable bool) error {
 	return rootfs.meta.redirect(from, to, enable)
 }
 
+// UpdateCache .
+func (rootfs *VFS) UpdateCache(name string) error {
+
+	var indexer map[string][2]string
+
+	err := rootfs.meta.tx(func() error {
+
+		indexername := "cached"
+
+		if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if src, ok := indexer[name]; ok {
+
+		userfs, ok := rootfs.userfs[src[0]]
+
+		if !ok {
+			return gserrors.Newf(ErrFS, "unknown userfs :%s", src[0])
+		}
+
+		err := userfs.UpdateCache(rootfs, src[1])
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // UpdateAll implement rootfs
 func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
 
@@ -647,6 +678,7 @@ func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
 				return err
 			}
 		}
+
 	}
 
 	if strings.HasPrefix(rootfs.targetpath, os.TempDir()) {
@@ -658,10 +690,10 @@ func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
 
 	return rootfs.List(func(src, target *Entry) bool {
 
-		err = src.userfs.Update(rootfs, src, target, false)
+		err = rootfs.Update(target.String(), false)
 
 		if err != nil {
-			panic(err)
+			return false
 		}
 
 		return true

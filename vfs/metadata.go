@@ -151,28 +151,13 @@ func (db *Metadata) clear() error {
 
 	path := filepath.Join(db.dbpath, filepath.Base(db.userspace))
 
-	if err := fs.RemoveAll(path); err != nil {
-		return gserrors.Newf(err, "remove userspace metadata error\n%s", path)
+	if fs.Exists(path) {
+		if err := fs.RemoveAll(path); err != nil {
+			return gserrors.Newf(err, "remove userspace metadata error\n%s", path)
+		}
 	}
 
-	err := fs.FLock(db.flocker, func() error {
-
-		var userspaces map[string]string
-
-		if err := db.readIndexer("userspace", &userspaces); err != nil {
-			return err
-		}
-
-		delete(userspaces, db.targetpath)
-
-		if err := db.writeIndexer("userspace", userspaces); err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	return err
+	return nil
 }
 
 func (db *Metadata) queryredirect(from string) (to string, ok bool) {
@@ -321,7 +306,7 @@ func (db *Metadata) queryMount(rootfs *VFS, target *Entry) (entry *Entry, err er
 			return nil
 		}
 
-		err = gserrors.Newf(ErrNotFound, "mount info not found")
+		err = gserrors.Newf(ErrNotFound, "mount info not found: %s", target)
 
 		return nil
 	})

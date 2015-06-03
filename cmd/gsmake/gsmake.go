@@ -27,7 +27,7 @@ Use "gsmake list" list all task
 
 // ImportVars .
 type ImportVars struct {
-	imports []string // import packages
+	imports []gsmake.Import // import packages
 }
 
 func (vars *ImportVars) String() string {
@@ -36,20 +36,28 @@ func (vars *ImportVars) String() string {
 
 // Set .
 func (vars *ImportVars) Set(val string) error {
-	vars.imports = append(vars.imports, val)
+
+	var ir gsmake.Import
+
+	if err := json.Unmarshal([]byte(val), &ir); err != nil {
+		return gserrors.Newf(err, "unmarshal import json error\n%s", val)
+	}
+
+	vars.imports = append(vars.imports, ir)
+
 	return nil
 }
 
 var importVars ImportVars
 
-var cacheflag = flag.Bool("nocache", false, "using caching packages")
+var clearflag = flag.Bool("clear", false, "clear usrspace")
 var verbflag = flag.Bool("v", false, "print more debug information")
 var rootflag = flag.String("root", "", "the gsmake's root path")
 
 var versionflag = flag.Bool("version", false, "print more debug information")
 
 func init() {
-	flag.Var(&importVars, "import", "import addition package")
+	flag.Var(&importVars, "I", "import addition package")
 }
 
 func readconfig(log gslogger.Log) (string, string) {
@@ -169,11 +177,17 @@ func main() {
 		}()
 	}
 
+	if *clearflag {
+		if err := rootfs.Clear(); err != nil {
+			panic(err)
+		}
+	}
+
 	log.I("build gsmake runner ...")
 
 	startime := time.Now()
 
-	compiler, err := gsmake.Compile(rootfs)
+	compiler, err := gsmake.Compile(rootfs, importVars.imports)
 
 	if err != nil {
 		gserrors.Panic(err)
@@ -182,10 +196,6 @@ func main() {
 	log.I("build gsmake runner -- success %v", time.Now().Sub(startime))
 
 	args := []string{}
-
-	if *cacheflag {
-		args = append(args, "-nocache")
-	}
 
 	if *verbflag {
 		args = append(args, "-v")

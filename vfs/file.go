@@ -65,10 +65,17 @@ func (fileFS *FileFS) UpdateCache(rootfs RootFS, cachepath string) error {
 
 // Dismount implement UserFS
 func (fileFS *FileFS) Dismount(rootfs RootFS, src, target *Entry) error {
+
+	if fs.Exists(target.Mapping) {
+		if err := fs.RemoveAll(target.Mapping); err != nil {
+			return gserrors.Newf(ErrFileFS, "remove mount target dir error\n%s", target.Mapping)
+		}
+	}
+
 	return nil
 }
 
 // Update implement UserFS
 func (fileFS *FileFS) Update(rootfs RootFS, src, target *Entry, nocache bool) error {
-	return nil
+	return fileFS.Mount(rootfs, src, target)
 }

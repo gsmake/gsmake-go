@@ -1,16 +1,18 @@
 {
     "name":"github.com/gsmake/gsmake",
 
+    "domain":"task|golang",
+
     "import" : [
-        {"name" : "github.com/gsdocker/gsos","version":"v2.0"},
-        {"name" : "github.com/gsdocker/gserrors","version":"v2.0"},
-        {"name" : "github.com/gsdocker/gslogger","version":"v2.0"}
+        {"name" : "github.com/gsdocker/gsos","version":"v2.0","domain":"task|golang"},
+        {"name" : "github.com/gsdocker/gserrors","version":"v2.0","domain":"task|golang"},
+        {"name" : "github.com/gsdocker/gslogger","version":"v2.0","domain":"task|golang"}
     ],
 
     "task" : {
 
         "setup" : {
-            "scope":"bootstrap",
+            "domain":"bootstrap",
             "description":"setup gsmake"
         },
 
@@ -32,6 +34,10 @@
 
         "update":{
             "description":"update packages"
+        },
+
+        "create":{
+            "description":"create package base on archtype"
         }
     },
 
