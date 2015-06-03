@@ -1,4 +1,4 @@
-# gsmake2.0 测试
+#<img width="50" height="50" src="doc/icon/gsmake.png"/> gsmake2.0 测试
 
 
 [![Build Status](https://travis-ci.org/gsmake/gsmake.svg?branch=release%2Fv2.0)](https://travis-ci.org/gsmake/gsmake)
