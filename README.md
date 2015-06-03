@@ -2,7 +2,7 @@
 
 ##安装
 
-1. go get github.com/gsdocker/gsmake
+1. go get github.com/gsmake/gsmake
 2. git checkout release/v2.0
 3. ./setup ${安装目录}
 4. 添加 GSMAKE_HOME=${安装目录}
