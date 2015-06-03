@@ -1,5 +1,8 @@
 # gsmake2.0 测试
 
+
+[![Build Status](https://travis-ci.org/gsmake/gsmake.svg?branch=release%2Fv2.0)](https://travis-ci.org/gsmake/gsmake)
+
 ##安装
 
 1. go get github.com/gsmake/gsmake
