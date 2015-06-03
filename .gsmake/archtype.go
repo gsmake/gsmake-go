@@ -63,7 +63,7 @@ func TaskCreate(runner *gsmake.Runner, args ...string) error {
 
 	src := fmt.Sprintf("%s://%s?version=%s", *protocol, host, *version)
 
-	target := fmt.Sprintf("gsmake://%s?domain=task", host)
+	target := fmt.Sprintf("gsmake://%s?domain=archtype", host)
 
 	err := runner.RootFS().Mount(src, target)
 
