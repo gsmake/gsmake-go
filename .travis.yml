@@ -1,0 +1,11 @@
+branches:
+  only:
+    - release/v2.0
+
+language: go
+
+go:
+  - 1.4
+
+install:
+    - ./setup.sh .repo
