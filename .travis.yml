@@ -13,6 +13,7 @@ install:
 
 
 script:
+    - ls -a
     - export GSMAKE_HOME=`pwd`/.repo/
     - mkdir test && cd test
     - pwd
