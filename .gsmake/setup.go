@@ -21,7 +21,11 @@ func TaskSetup(runner *gsmake.Runner, args ...string) error {
 
 		os.Setenv("GOPATH", runner.RootFS().DomainDir("task"))
 
-		obj := filepath.Join(args[0], "bin", "gsmake"+fs.ExeSuffix)
+		obj, err := filepath.Abs(filepath.Join(args[0], "bin", "gsmake"+fs.ExeSuffix))
+
+		if err != nil {
+			return gserrors.Newf(err, "get target fullpath error")
+		}
 
 		runner.I("install gsmake to :%s", obj)
 
