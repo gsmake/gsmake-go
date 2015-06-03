@@ -231,7 +231,12 @@ func (runner *Runner) SCM() string {
 
 // Path get package's path
 func (runner *Runner) Path(domain, name string) (string, error) {
-	_, target, err := runner.rootfs.Open(fmt.Sprintf("gsmake://%s?domain=%s", name, domain))
+
+	url := fmt.Sprintf("gsmake://%s?domain=%s", name, domain)
+
+	runner.I("path :%s", url)
+
+	_, target, err := runner.rootfs.Open(url)
 
 	if err != nil {
 		return "", err

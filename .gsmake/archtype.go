@@ -71,7 +71,7 @@ func TaskCreate(runner *gsmake.Runner, args ...string) error {
 		return err
 	}
 
-	path, err := runner.Path("task", host)
+	path, err := runner.Path("archtype", host)
 
 	if err != nil {
 		return err
