@@ -51,6 +51,10 @@ func (fileFS *FileFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 	srcpath := fmt.Sprintf("%s%s", src.Host, src.Path)
 
+	if !fs.Exists(srcpath) {
+		return gserrors.Newf(ErrFileFS, "target dir not exists\n\t%s", dir)
+	}
+
 	if err := fs.Symlink(srcpath, target.Mapping); err != nil {
 		return gserrors.Newf(err, "link dir error\n\tsrc: %s\n\ttarget: %s", srcpath, target.Mapping)
 	}
