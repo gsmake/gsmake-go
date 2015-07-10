@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gsdocker/gserrors"
@@ -154,9 +155,38 @@ func (gitFS *GitFS) clone(remote, rundir, dirname string, bare bool) error {
 
 func (gitFS *GitFS) setRemote(rundir string, name string, url string) error {
 
-	gitFS.D("chage remote :\n\trepo:%s\n\tname:%s\n\turl:%s", rundir, name, url)
+	gitFS.D("change remote :\n\trepo:%s\n\tname:%s\n\turl:%s", rundir, name, url)
 
-	cmd := exec.Command("git", "remote", "set-url", name, url)
+	cmd := exec.Command("git", "remote")
+
+	var buff bytes.Buffer
+
+	cmd.Stdout = &buff
+
+	cmd.Stderr = os.Stderr
+
+	cmd.Dir = rundir
+
+	err := cmd.Run()
+
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(buff.String(), name) {
+
+		cmd = exec.Command("git", "remote", "add", name, url)
+
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+
+		cmd.Dir = rundir
+
+		return cmd.Run()
+	}
+
+	cmd = exec.Command("git", "remote", "set-url", name, url)
 
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
