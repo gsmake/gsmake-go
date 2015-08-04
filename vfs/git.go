@@ -138,11 +138,13 @@ func (gitFS *GitFS) clone(remote, rundir, dirname string, bare bool) error {
 
 	var cmd *exec.Cmd
 
-	if !bare {
-		cmd = exec.Command("git", "clone", remote, dirname)
-	} else {
-		cmd = exec.Command("git", "clone", "--bare", remote, dirname)
-	}
+	cmd = exec.Command("git", "clone", remote, dirname)
+
+	// if !bare {
+	// 	cmd = exec.Command("git", "clone", remote, dirname)
+	// } else {
+	// 	cmd = exec.Command("git", "clone", "--bare", remote, dirname)
+	// }
 
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -210,6 +212,19 @@ func (gitFS *GitFS) fetch(rundir string) error {
 	return cmd.Run()
 }
 
+func (gitFS *GitFS) pull(rundir string) error {
+
+	cmd := exec.Command("git", "pull")
+
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+
+	cmd.Dir = rundir
+
+	return cmd.Run()
+}
+
 func (gitFS *GitFS) checkout(rundir string, version string) error {
 
 	cmd := exec.Command("git", "checkout", version)
@@ -246,7 +261,7 @@ func (gitFS *GitFS) UpdateCache(rootfs RootFS, cachepath string) error {
 
 	startime := time.Now()
 
-	if err := gitFS.fetch(filepath.Join(cachepath)); err != nil {
+	if err := gitFS.pull(filepath.Join(cachepath)); err != nil {
 		return gserrors.Newf(err, "pull remote repo error")
 	}
 
