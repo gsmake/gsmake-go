@@ -302,6 +302,24 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 		return nil, err
 	}
 
+	// parse redirect instruction
+	if pkg.Redirect != nil {
+
+		if pkg.Redirect.Version == "" {
+			pkg.Redirect.Version = "current"
+		}
+
+		if err := loader.parseSCM(pkg.Redirect); err != nil {
+			return nil, err
+		}
+
+		loader.I("redirect :\n\tsource :%s %s\n\ttarget :%s %s", pkg.Name, pkg.Version, pkg.Redirect.Name, pkg.Redirect.Version)
+
+		pkg.Redirect.Domain = currentDomain
+
+		return loader.loadpackage(*pkg.Redirect)
+	}
+
 	valid := false
 
 	for _, domain := range ParseDomain(pkg.Domain, DomainDefault) {
@@ -345,6 +363,23 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 	return pkg, nil
 }
 
+func (loader *Loader) parseSCM(ir *Import) error {
+	// calc scm url
+	if ir.SCM == "" {
+
+		u, err := url.Parse(fmt.Sprintf("https://%s", ir.Name))
+
+		if err != nil {
+
+			return gserrors.Newf(err, "invalid import package :%s\n%s", ir.Name, loadpath(loader.checkerOfDCG, ir.Name, ir.Version))
+		}
+
+		ir.SCM = loader.rootfs.Protocol(u.Host)
+	}
+
+	return nil
+}
+
 func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Import) error {
 
 	if ir.Version == "" {
@@ -352,15 +387,8 @@ func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Im
 	}
 
 	// calc scm url
-	if ir.SCM == "" {
-
-		u, err := url.Parse(fmt.Sprintf("https://%s", ir.Name))
-
-		if err != nil {
-			return gserrors.Newf(err, "%s invalid import package :%s", parent.Name, ir.Name)
-		}
-
-		ir.SCM = loader.rootfs.Protocol(u.Host)
+	if err := loader.parseSCM(&ir); err != nil {
+		return err
 	}
 
 	domains := ParseDomain(ir.Domain, parent.Domain)

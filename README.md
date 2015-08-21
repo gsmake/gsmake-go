@@ -1,4 +1,7 @@
-# gsmake2.0 测试
+#<img width="50" height="50" src="doc/icon/gsmake.png"/> gsmake2.0 测试
+
+
+[![Build Status](https://travis-ci.org/gsmake/gsmake.svg?branch=release%2Fv2.0)](https://travis-ci.org/gsmake/gsmake)
 
 ##安装
 
@@ -13,5 +16,7 @@
 
 ##使用gsmake创建gsweb项目
 
+
+0. cd ${任意非gsmake package目录}
 1. 通过archtype创建项目模板：gsmake create -o test -v v2.0 "github.com/gsdocker/gsweb:basic"
 2. 启动gsweb自动构建: cd test && gsmake gsweb gsweb.basic

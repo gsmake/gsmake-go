@@ -27,5 +27,6 @@ type Package struct {
 	Task       map[string]*Task    // package defined task
 	Properties property.Properties // properties
 	Version    string              // package version
+	Redirect   *Import             // package redirect instruction
 	loadPath   []*Package          // package load path
 }

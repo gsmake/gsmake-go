@@ -47,5 +47,5 @@ func TaskDiscache(runner *gsmake.Runner, args ...string) error {
 
 	runner.I("discache package :\n\tsrc :%s\n\ttarget :%s", src, target)
 
-	return runner.RootFS().Redirect(args[0], target, false)
+	return runner.RootFS().Redirect(src, target, false)
 }

@@ -38,6 +38,10 @@
 
         "create":{
             "description":"create package base on archtype"
+        },
+
+        "redirect":{
+            "description":"load redirect config package"
         }
     },
 
