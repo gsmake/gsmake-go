@@ -12,7 +12,7 @@
     "task" : {
 
         "setup" : {
-            "scope":"bootstrap",
+            "domain":"bootstrap",
             "description":"setup gsmake"
         },
 
@@ -34,6 +34,14 @@
 
         "update":{
             "description":"update packages"
+        },
+
+        "create":{
+            "description":"create package base on archtype"
+        },
+
+        "redirect":{
+            "description":"load redirect config package"
         }
     },
 

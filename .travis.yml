@@ -1,0 +1,22 @@
+branches:
+  only:
+    - release/v2.0
+
+language: go
+
+go:
+  - 1.4
+
+install:
+    - go get ./...
+
+
+script:
+    - ./setup.sh .repo
+    - ls -a
+    - ls .repo
+    - ls .repo/bin/
+    - export GSMAKE_HOME=`pwd`/.repo/
+    - mkdir test && cd test
+    - ../.repo/bin/gsmake create -o test -v v2.0 "github.com/gsdocker/gsweb:basic"
+    - cd test && ../../.repo/bin/gsmake list

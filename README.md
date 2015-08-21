@@ -1,53 +1,22 @@
-# gsmake
-
-gsmake is a build automation software which is develop by pure go language
-
-## setup
-
-> 1. install golang sdk
-> 2. install git
-> 3. go get github.com/gsdocker/gsmake
-> 4. cd {gsmake source dir}
-> 5. run ./setup {install dir}
-> 6. append {install dir}/bin to system env $PATH
-
-## usage
-
-### create customer gsmake task
-
-1. create project dir sample
-2. cd sample
-3. create .gsmake.json config file in project dir:
-```json
-{
-    "name":"github.com/gsdocker/sample",
-
-    "import" : [
-        {"name" : "github.com/gsdocker/gsmake"}
-    ],
-
-    "task" : {
-
-        "helloworld" : {"description" : "say hello"},
-    }
-}
-```
-4. create go source file : {project.dir}/.gsmake/task.go:
-```go
-package plugin
-
-import "github.com/gsdocker/gsmake"
-
-// TaskHelloworld implement gsmake task helloworld .
-func TaskHelloworld(context *gsmake.Runner, args ...string) error {
-	context.I("hello gsmake!!!!!!")
-	return nil
-}
-```
-5. run task helloworld
-> gsmake helloworld
+#<img width="50" height="50" src="doc/icon/gsmake.png"/> gsmake2.0 测试
 
 
-### golang project build
+[![Build Status](https://travis-ci.org/gsmake/gsmake.svg?branch=release%2Fv2.0)](https://travis-ci.org/gsmake/gsmake)
 
-> the gsmake project is a good example for build golang project ,see ./gsmake.json for more detail
+##安装
+
+1. go get github.com/gsmake/gsmake
+2. cd $GOPATH/src/github.com/gsmake/gsmake
+2. git checkout release/v2.0
+3. 执行安装：
+    * linux/osx : ./setup.sh ${安装目录}
+    * windows : .\setup.bat ${安装目录}
+4. 添加 GSMAKE_HOME=${安装目录}
+5. 将${安装目录}/bin加入PATH环境变量
+
+##使用gsmake创建gsweb项目
+
+
+0. cd ${任意非gsmake package目录}
+1. 通过archtype创建项目模板：gsmake create -o test -v v2.0 "github.com/gsdocker/gsweb:basic"
+2. 启动gsweb自动构建: cd test && gsmake gsweb gsweb.basic

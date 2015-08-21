@@ -100,13 +100,14 @@ type RootFS interface {
 	Update(src string, nocache bool) error
 	// UpdateAll update all userspace's packages
 	UpdateAll(nocache bool) error
+	// UpdateCache
+	UpdateCache(src string) error
 	// Clear clear userspace
 	Clear() error
 	// Get mount fs cache root
 	CacheRoot(src *Entry) string
 	// Cached update cache metadata
 	Cached(src *Entry) error
-
 	// Protocol get host default protocol
 	Protocol(host string) string
 	// TempDir domain tempdir
@@ -401,6 +402,21 @@ func (rootfs *VFS) Update(target string, nocache bool) error {
 		return gserrors.Newf(ErrURL, "target package not exists \n%s", target)
 	}
 
+	src := fmt.Sprintf("%s://%s%s?version=%s", srcE.Scheme, srcE.Host, srcE.Path, srcE.Query().Get("version"))
+
+	rootfs.D("update src :%s", src)
+
+	if to, ok := rootfs.meta.queryredirect(src); ok {
+
+		rootfs.D("redirect \n\tfrom :%s\n\tto :%s", src, to)
+
+		srcE, err = rootfs.parseurl(to)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return srcE.userfs.Update(rootfs, srcE, targetE, nocache)
 }
 
@@ -445,7 +461,7 @@ func (rootfs *VFS) Clear() error {
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -589,6 +605,44 @@ func (rootfs *VFS) Redirect(from, to string, enable bool) error {
 	return rootfs.meta.redirect(from, to, enable)
 }
 
+// UpdateCache .
+func (rootfs *VFS) UpdateCache(name string) error {
+
+	var indexer map[string][2]string
+
+	err := rootfs.meta.tx(func() error {
+
+		indexername := "cached"
+
+		if err := rootfs.meta.readIndexer(indexername, &indexer); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if src, ok := indexer[name]; ok {
+
+		userfs, ok := rootfs.userfs[src[0]]
+
+		if !ok {
+			return gserrors.Newf(ErrFS, "unknown userfs :%s", src[0])
+		}
+
+		err := userfs.UpdateCache(rootfs, src[1])
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // UpdateAll implement rootfs
 func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
 
@@ -636,10 +690,10 @@ func (rootfs *VFS) UpdateAll(nocache bool) (err error) {
 
 	return rootfs.List(func(src, target *Entry) bool {
 
-		err = src.userfs.Update(rootfs, src, target, false)
+		err = rootfs.Update(target.String(), false)
 
 		if err != nil {
-			panic(err)
+			return false
 		}
 
 		return true

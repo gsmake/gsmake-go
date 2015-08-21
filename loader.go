@@ -39,15 +39,17 @@ type Loader struct {
 	checkerOfDCG []*Package                     // DCG check stack
 	rootfs       vfs.RootFS                     // vfs object
 	targetpath   string                         // the loading package path
+	imports      []Import                       // extra imports
 }
 
-func load(rootfs vfs.RootFS) (*Loader, error) {
+func load(rootfs vfs.RootFS, imports []Import) (*Loader, error) {
 
 	loader := &Loader{
 		Log:        gslogger.Get("loader"),
 		targetpath: rootfs.TargetPath(),
 		packages:   make(map[string]map[string]*Package),
 		rootfs:     rootfs,
+		imports:    imports,
 	}
 
 	loader.I("load package ...")
@@ -114,6 +116,19 @@ func (loader *Loader) load() error {
 
 	domains := ParseDomain(pkg.Domain, DomainDefault)
 
+	hasTask := false
+
+	for _, v := range domains {
+		if v == "task" {
+			hasTask = true
+			break
+		}
+	}
+
+	if !hasTask {
+		domains = append(domains, "task")
+	}
+
 	for _, domain := range domains {
 
 		_, _, err := loader.tryMount(domain, pkg.Name, loader.targetpath, "current", "file")
@@ -129,6 +144,13 @@ func (loader *Loader) load() error {
 		}
 
 		loader.addpackage(domain, pkg)
+
+		if domain == "task" {
+
+			for _, ir := range loader.imports {
+				loader.importPackage(domain, pkg, ir)
+			}
+		}
 
 	}
 
@@ -154,6 +176,8 @@ func (loader *Loader) load() error {
 	// dismount not loaded packages
 
 	err = loader.rootfs.List(func(src, target *vfs.Entry) bool {
+
+		loader.D("check mounted vfs node :%s", target)
 
 		if _, ok := loader.querypackage(target.Domain(), target.Name()); !ok {
 			loader.I("dismount :%s", target)
@@ -206,7 +230,7 @@ func loadpath(path []*Package, name, version string) string {
 	var buff bytes.Buffer
 
 	for _, pkg := range path {
-		buff.WriteString(fmt.Sprintf("\t\t%s %s\n", pkg.Name, pkg.version))
+		buff.WriteString(fmt.Sprintf("\t\t%s %s\n", pkg.Name, pkg.Version))
 	}
 
 	buff.WriteString(fmt.Sprintf("\t\t%s %s\n", name, version))
@@ -216,21 +240,20 @@ func loadpath(path []*Package, name, version string) string {
 
 func (loader *Loader) loadpackage(i Import) (*Package, error) {
 
-	if packages, ok := loader.packages[i.Domain]; ok {
+	loader.D("load package %s %s", i.Name, i.Domain)
 
-		if pkg, ok := packages[i.Name]; ok {
-
-			if pkg.version != i.Version {
-				return nil, gserrors.Newf(
-					ErrLoad,
-					"import package with diff version\n\tthe one:\n%s\n\tthe other:\n%s",
-					loadpath(pkg.loadPath, pkg.Name, pkg.version),
-					loadpath(loader.checkerOfDCG, i.Name, i.Version),
-				)
-			}
-
-			return pkg, nil
+	if pkg, ok := loader.querypackage(i.Domain, i.Name); ok {
+		if pkg.Version != i.Version {
+			return nil, gserrors.Newf(
+				ErrLoad,
+				"%s import package with diff version\n\tthe one:\n%s\n\tthe other:\n%s",
+				i.Domain,
+				loadpath(pkg.loadPath, pkg.Name, pkg.Version),
+				loadpath(loader.checkerOfDCG, i.Name, i.Version),
+			)
 		}
+
+		return pkg, nil
 	}
 
 	// DCG check
@@ -256,7 +279,7 @@ func (loader *Loader) loadpackage(i Import) (*Package, error) {
 		return nil, err
 	}
 
-	importpkg.version = i.Version
+	importpkg.Version = i.Version
 
 	return importpkg, nil
 }
@@ -279,6 +302,47 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 		return nil, err
 	}
 
+	// parse redirect instruction
+	if pkg.Redirect != nil {
+
+		if pkg.Redirect.Version == "" {
+			pkg.Redirect.Version = "current"
+		}
+
+		if err := loader.parseSCM(pkg.Redirect); err != nil {
+			return nil, err
+		}
+
+		loader.I("redirect :\n\tsource :%s %s\n\ttarget :%s %s", pkg.Name, pkg.Version, pkg.Redirect.Name, pkg.Redirect.Version)
+
+		pkg.Redirect.Domain = currentDomain
+
+		return loader.loadpackage(*pkg.Redirect)
+	}
+
+	valid := false
+
+	for _, domain := range ParseDomain(pkg.Domain, DomainDefault) {
+		if domain == currentDomain {
+			valid = true
+		}
+	}
+
+	if currentDomain == "task" && fullpath == loader.targetpath {
+		valid = true
+	}
+
+	if !valid {
+
+		return nil, gserrors.Newf(
+			err,
+			"%s unsupport domain :%s\n%s",
+			pkg.Name,
+			currentDomain,
+			loadpath(loader.checkerOfDCG, pkg.Name, pkg.Version),
+		)
+	}
+
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
 
 	defer func() {
@@ -299,6 +363,23 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 	return pkg, nil
 }
 
+func (loader *Loader) parseSCM(ir *Import) error {
+	// calc scm url
+	if ir.SCM == "" {
+
+		u, err := url.Parse(fmt.Sprintf("https://%s", ir.Name))
+
+		if err != nil {
+
+			return gserrors.Newf(err, "invalid import package :%s\n%s", ir.Name, loadpath(loader.checkerOfDCG, ir.Name, ir.Version))
+		}
+
+		ir.SCM = loader.rootfs.Protocol(u.Host)
+	}
+
+	return nil
+}
+
 func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Import) error {
 
 	if ir.Version == "" {
@@ -306,45 +387,19 @@ func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Im
 	}
 
 	// calc scm url
-	if ir.SCM == "" {
-
-		u, err := url.Parse(fmt.Sprintf("https://%s", ir.Name))
-
-		if err != nil {
-			return gserrors.Newf(err, "%s invalid import package :%s", parent.Name, ir.Name)
-		}
-
-		ir.SCM = loader.rootfs.Protocol(u.Host)
+	if err := loader.parseSCM(&ir); err != nil {
+		return err
 	}
 
 	domains := ParseDomain(ir.Domain, parent.Domain)
 
-	parentDomains := ParseDomain(parent.Domain, DomainDefault)
+	//parentDomains := ParseDomain(parent.Domain, DomainDefault)
 
 	for _, domain := range domains {
 
-		valid := false
-
-		// check domain if valid .
-		for _, parentDomain := range parentDomains {
-			if domain == parentDomain {
-				valid = true
-				break
-			}
-		}
-
-		if !valid {
-			return gserrors.Newf(
-				ErrLoad,
-				"%s %s invalid import %s %s\n\t unknown domain",
-				parent.Name,
-				parent.version,
-				ir.Name,
-				ir.Version,
-			)
-		}
-
 		if domain == currentDomain {
+
+			loader.D("%s %s import %s %s", parent.Name, currentDomain, ir.Name, domain)
 
 			ir.Domain = domain
 
@@ -358,6 +413,7 @@ func (loader *Loader) importPackage(currentDomain string, parent *Package, ir Im
 
 			return nil
 		}
+
 	}
 
 	return nil

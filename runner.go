@@ -38,7 +38,7 @@ func (cmd *TaskCmd) String() string {
 	}
 
 	return fmt.Sprintf(
-		"task details\n\tpackage:     %s\n\tdescription: %s\n\tscope:       %s\n",
+		"task :\n\t\tpackage:     %s\n\t\tdescription: %s\n\t\tscope:       %s\n",
 		cmd.Name,
 		cmd.Description,
 		scope,
@@ -168,7 +168,7 @@ func (group *taskGroup) invoke(runner *Runner, domain string, args ...string) er
 			scope = "ALL"
 		}
 
-		runner.I("exec task ...\n%s", task)
+		runner.I("exec %s", task)
 
 		startime := time.Now()
 
@@ -215,15 +215,52 @@ func (runner *Runner) Name() string {
 	return runner.currentpkg.Name
 }
 
+// SCM get package's default scm protocol type
+func (runner *Runner) SCM() string {
+
+	host := runner.currentpkg.Name
+
+	index := strings.Index(host, "/")
+
+	if index != -1 {
+		host = host[:index]
+	}
+
+	return runner.rootfs.Protocol(host)
+}
+
 // Path get package's path
 func (runner *Runner) Path(domain, name string) (string, error) {
-	_, target, err := runner.rootfs.Open(fmt.Sprintf("gsmake://%s?domain=%s", name, domain))
+
+	url := fmt.Sprintf("gsmake://%s?domain=%s", name, domain)
+
+	runner.I("path :%s", url)
+
+	_, target, err := runner.rootfs.Open(url)
 
 	if err != nil {
 		return "", err
 	}
 
 	return target.Mapping, nil
+}
+
+// Property get package's property
+func (runner *Runner) Property(domain, packagename, name string, val interface{}) error {
+
+	_, target, err := runner.rootfs.Open(fmt.Sprintf("gsmake://%s?domain=%s", packagename, domain))
+
+	if err != nil {
+		return err
+	}
+
+	pkg, err := loadjson(filepath.Join(target.Mapping, ".gsmake.json"))
+
+	if err != nil {
+		return err
+	}
+
+	return pkg.Properties.Query(name, val)
 }
 
 // RootFS get rootfs object

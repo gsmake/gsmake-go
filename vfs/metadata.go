@@ -306,7 +306,7 @@ func (db *Metadata) queryMount(rootfs *VFS, target *Entry) (entry *Entry, err er
 			return nil
 		}
 
-		err = gserrors.Newf(ErrNotFound, "mount info not found")
+		err = gserrors.Newf(ErrNotFound, "mount info not found: %s", target)
 
 		return nil
 	})

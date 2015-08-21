@@ -51,6 +51,10 @@ func (fileFS *FileFS) Mount(rootfs RootFS, src, target *Entry) error {
 
 	srcpath := fmt.Sprintf("%s%s", src.Host, src.Path)
 
+	if !fs.Exists(srcpath) {
+		return gserrors.Newf(ErrFileFS, "target dir not exists\n\t%s", dir)
+	}
+
 	if err := fs.Symlink(srcpath, target.Mapping); err != nil {
 		return gserrors.Newf(err, "link dir error\n\tsrc: %s\n\ttarget: %s", srcpath, target.Mapping)
 	}
@@ -65,10 +69,17 @@ func (fileFS *FileFS) UpdateCache(rootfs RootFS, cachepath string) error {
 
 // Dismount implement UserFS
 func (fileFS *FileFS) Dismount(rootfs RootFS, src, target *Entry) error {
+
+	if fs.Exists(target.Mapping) {
+		if err := fs.RemoveAll(target.Mapping); err != nil {
+			return gserrors.Newf(ErrFileFS, "remove mount target dir error\n%s", target.Mapping)
+		}
+	}
+
 	return nil
 }
 
 // Update implement UserFS
 func (fileFS *FileFS) Update(rootfs RootFS, src, target *Entry, nocache bool) error {
-	return nil
+	return fileFS.Mount(rootfs, src, target)
 }
