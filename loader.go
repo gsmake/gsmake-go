@@ -240,7 +240,7 @@ func loadpath(path []*Package, name, version string) string {
 
 func (loader *Loader) loadpackage(i Import) (*Package, error) {
 
-	loader.D("load package %s %s", i.Name, i.Domain)
+	loader.D("  %s %s", i.Name, i.Domain)
 
 	if pkg, ok := loader.querypackage(i.Domain, i.Name); ok {
 		if pkg.Version != i.Version {
@@ -318,29 +318,6 @@ func (loader *Loader) loadpackagev2(currentDomain, name, fullpath string) (*Pack
 		pkg.Redirect.Domain = currentDomain
 
 		return loader.loadpackage(*pkg.Redirect)
-	}
-
-	valid := false
-
-	for _, domain := range ParseDomain(pkg.Domain, DomainDefault) {
-		if domain == currentDomain {
-			valid = true
-		}
-	}
-
-	if currentDomain == "task" && fullpath == loader.targetpath {
-		valid = true
-	}
-
-	if !valid {
-
-		return nil, gserrors.Newf(
-			err,
-			"%s unsupport domain :%s\n%s",
-			pkg.Name,
-			currentDomain,
-			loadpath(loader.checkerOfDCG, pkg.Name, pkg.Version),
-		)
 	}
 
 	loader.checkerOfDCG = append(loader.checkerOfDCG, pkg)
