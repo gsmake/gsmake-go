@@ -63,7 +63,8 @@ type Entry struct {
 }
 
 func (entry *Entry) String() string {
-	return entry.URL.String()
+	val, _ := url.QueryUnescape(entry.URL.String())
+	return val
 }
 
 // Domain .
@@ -208,7 +209,7 @@ func (rootfs *VFS) parseurl(src string) (*Entry, error) {
 	u, err := url.Parse(src)
 
 	if err != nil {
-		return nil, gserrors.Newf(err, "parse url error ")
+		return nil, gserrors.Newf(err, "parse url error:%s", src)
 	}
 
 	entry := &Entry{

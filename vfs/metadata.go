@@ -250,6 +250,8 @@ func (db *Metadata) mount(src, target *Entry) error {
 
 		indexer[key] = MountIndexer{src.String(), target.String()}
 
+		db.D("mount\n\tsrc :%s\n\ttarget:%s", indexer[key].Src, indexer[key].Target)
+
 		if err := db.writeIndexer(indexername, indexer); err != nil {
 			return err
 		}
