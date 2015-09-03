@@ -47,7 +47,7 @@ func init(){
         Name : "{{$key}}",
         Description : "{{$value.Description}}",
         F : task.{{taskname $key}},
-        Prev : "{{$value.Prev}}",
+        Prev : {{prev $value.Prev}},
         Project : "{{$value.Package}}",
         Scope : "{{$value.Domain}}",
     })

@@ -21,12 +21,12 @@ var (
 
 // TaskCmd gsmake task
 type TaskCmd struct {
-	Name        string // task name
-	Description string // task description
-	F           TaskF  // task function
-	Prev        string // prev task name
-	Project     string // project belongs to
-	Scope       string // scope belongs to
+	Name        string   // task name
+	Description string   // task description
+	F           TaskF    // task function
+	Prev        []string // prev task name
+	Project     string   // project belongs to
+	Scope       string   // scope belongs to
 }
 
 func (cmd *TaskCmd) String() string {
@@ -110,20 +110,18 @@ func (group *taskGroup) topoShort(context *Runner) ([]*taskGroup, error) {
 
 	for _, task := range group.group {
 
-		if task.Prev == "" {
-			continue
-		}
+		for _, prev := range task.Prev {
+			if prev, ok := context.tasks[prev]; ok {
+				r, err := prev.topoShort(context)
 
-		if prev, ok := context.tasks[task.Prev]; ok {
-			r, err := prev.topoShort(context)
+				if err != nil {
+					return nil, err
+				}
 
-			if err != nil {
-				return nil, err
+				result = append(result, r...)
+			} else {
+				return nil, gserrors.Newf(ErrTask, "unknown task %s which is reference by %s:%s", task.Prev, task.Project, task.Name)
 			}
-
-			result = append(result, r...)
-		} else {
-			return nil, gserrors.Newf(ErrTask, "unknown task %s which is reference by %s:%s", task.Prev, task.Project, task.Name)
 		}
 	}
 

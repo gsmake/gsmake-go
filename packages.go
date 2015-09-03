@@ -13,10 +13,10 @@ type Import struct {
 
 // Task package defined task description
 type Task struct {
-	Prev        string // depend task name
-	Description string // task description
-	Domain      string // scope belongs to
-	Package     string `json:"-"` // package name which defined this task
+	Prev        []string // depend task name
+	Description string   // task description
+	Domain      string   // scope belongs to
+	Package     string   `json:"-"` // package name which defined this task
 }
 
 // Package describe a gsmake package object

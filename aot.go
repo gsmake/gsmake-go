@@ -48,6 +48,20 @@ func Compile(rootfs vfs.RootFS, imports []Import) (*AOTCompiler, error) {
 		"ospath": func(name string) string {
 			return strings.Replace(name, "\\", "\\\\", -1)
 		},
+
+		"prev": func(names []string) string {
+			var buff bytes.Buffer
+
+			buff.WriteString("[]string{")
+
+			for _, name := range names {
+				buff.WriteString(fmt.Sprintf("%s, ", name))
+			}
+
+			buff.WriteString("}")
+
+			return strings.Replace(buff.String(), ", }", "}", -1)
+		},
 	}
 
 	tpl, err := template.New("golang").Funcs(funcs).Parse(codegen)
