@@ -55,7 +55,7 @@ func Compile(rootfs vfs.RootFS, imports []Import) (*AOTCompiler, error) {
 			buff.WriteString("[]string{")
 
 			for _, name := range names {
-				buff.WriteString(fmt.Sprintf("%s, ", name))
+				buff.WriteString(fmt.Sprintf("\"%s\", ", name))
 			}
 
 			buff.WriteString("}")
